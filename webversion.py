@@ -8,14 +8,15 @@ import PyPDF2
 import requests
 import hashlib
 import io
-from gtts import gTTS
 
+from gtts import gTTS
 
 def tts_audio(word):
     tts = gTTS(word, lang="en")
     fname = f"tmp_{word}.mp3"
     tts.save(fname)
     return fname
+
 
 # ------------------- Baidu Translate API -------------------
 APPID = "20251130002509027"  # <- 在此填入你的 APPID
