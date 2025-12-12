@@ -11,6 +11,9 @@ import io
 from gtts import gTTS
 import os
 
+# 初始化 session_state 变量
+if 'user_words' not in st.session_state:
+    st.session_state.user_words = []
 AUDIO_DIR = "audio"
 
 def ensure_audio_folder():
