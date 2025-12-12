@@ -350,6 +350,6 @@ if st.session_state.game_started and st.session_state.game_mode == "Scrambled Le
 if st.session_state.game_started and st.session_state.game_mode == "Matching Game":
     play_matching_game()
 # ------------------- Listen & Choose ------------------- 
-st.session_state.game_started and st.session_state.game_mode == "Listen & Choose":
+if st.session_state.game_started and st.session_state.game_mode == "Listen & Choose":
     play_listen_game()
 
