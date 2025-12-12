@@ -12,40 +12,6 @@ from gtts import gTTS
 import os
 
 
-
-# ------------------------------
-# Session State 初始化
-# ------------------------------
-# 所有自定义变量统一初始化，避免 AttributeError
-default_state = {
-    'user_words': [],        # 用户输入的单词列表
-    'game_started': False,   # 游戏是否开始
-    'current_index': 0,      # 当前进行到的单词索引
-    'score': 0,              # 用户分数
-    'selected_word': None,   # Listen & Choose 游戏中用户当前选择的单词
-    'example_sentences': [], # Fill-in-the-blank 游戏的例句列表
-    'game_mode': None        # 当前选择的游戏模式
-}
-
-for key, default_value in default_state.items():
-    if key not in st.session_state:
-        st.session_state[key] = default_value
-
-# ------------------------------
-# 游戏模式选择 Selectbox
-# ------------------------------
-# 使用唯一 key，避免重复 Element ID
-if st.session_state.game_mode is None:
-    st.session_state.game_mode = "Scrambled Letters Game"  # 默认值
-
-st.session_state.game_mode = st.selectbox(
-    label="Choose game mode",
-    options=["Scrambled Letters Game", "Matching Game", "Listen & Choose"],
-    index=0,  # 默认选择第一个
-    key="game_mode_selectbox"  # 唯一 key
-)
-
-
 # ------------- take audio ---------------------
 def ensure_audio_folder():
     os.makedirs(AUDIO_DIR, exist_ok=True)
