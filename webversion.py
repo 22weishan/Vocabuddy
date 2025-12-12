@@ -8,6 +8,14 @@ import PyPDF2
 import requests
 import hashlib
 import io
+from gtts import gTTS
+
+
+def tts_audio(word):
+    tts = gTTS(word, lang="en")
+    fname = f"tmp_{word}.mp3"
+    tts.save(fname)
+    return fname
 
 # ------------------- Baidu Translate API -------------------
 APPID = "20251130002509027"  # <- 在此填入你的 APPID
@@ -35,37 +43,6 @@ def baidu_translate(q, from_lang="auto", to_lang="zh"):
         return data["trans_result"][0]["dst"]
     except Exception:
         return q
-
-# ------------------- Collins Dictionary API -------------------
-COLLINS_API_KEY = "T5hNEh8i69hXx80wFZGCKzbRe3C5su4uFlcyklLJ8wVcDFYw4RXGcGfQloDORrdz"   # <- Fill in your Collins API key
-COLLINS_BASE_URL = "https://api.collinsdictionary.com/api/v1/dictionaries/english/entries/"
-
-def get_collins_audio(word):
-    """
-    Return audio URL for a word using Collins API.
-    If not found, return None.
-    """
-    url = COLLINS_BASE_URL + word.lower()
-    headers = {"accessKey": COLLINS_API_KEY}
-
-    try:
-        r = requests.get(url, headers=headers, timeout=5)
-        if r.status_code != 200:
-            return None
-        data = r.json()
-
-        # Collins typical structure:
-        # results -> entryContent -> pronunciations -> audio -> href
-        for result in data.get("results", []):
-            entry = result.get("entryContent", {})
-            prons = entry.get("pronunciations", [])
-            for p in prons:
-                audio_info = p.get("audio")
-                if audio_info and "href" in audio_info:
-                    return audio_info["href"]
-        return None
-    except Exception:
-        return None
 
 # ------------------- Reading files -------------------
 def read_file(file):
