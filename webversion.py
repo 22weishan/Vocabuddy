@@ -1,7 +1,6 @@
 import streamlit as st
 import random
 import pandas as pd
-import pytesseract
 from PIL import Image, UnidentifiedImageError
 import docx
 import PyPDF2
@@ -110,20 +109,6 @@ def read_file(file):
         return []
     return [w.strip() for w in words if w.strip()]
 
-# ------------------- reading from images -------------------
-def read_image(image_file):
-    """Run OCR via pytesseract; return list of words. If OCR fails, return []."""
-    try:
-        # image_file is UploadFile; use BytesIO
-        img = Image.open(io.BytesIO(image_file.read()))
-        text = pytesseract.image_to_string(img)
-        words = [w.strip() for w in text.split() if w.strip()]
-        return words
-    except UnidentifiedImageError:
-        return []
-    except Exception:
-        # If pytesseract or tesseract binary is missing, return []
-        return []
 
 # ------------------- define Scramble Game -------------------
 def scramble_word(w):
