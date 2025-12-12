@@ -103,7 +103,7 @@ def play_listen_game(user_words):
         st.warning("Please provide exactly 10 words first.")
         return
 
-    # 用 session_state 记录当前播放到第几个单词
+    # 初始化状态
     if "listen_index" not in st.session_state:
         st.session_state.listen_index = 0
     if "listen_score" not in st.session_state:
@@ -112,33 +112,36 @@ def play_listen_game(user_words):
         st.session_state.listen_answers = [""] * 10
 
     idx = st.session_state.listen_index
-    current_word = user_words[idx]
-    audio_file = generate_tts_audio(current_word)
 
-    st.audio(audio_file, format="audio/mp3")
-    st.info(f"Word {idx + 1} of {len(user_words)}")
+    # 游戏未结束
+    if idx < len(user_words):
+        current_word = user_words[idx]
 
-    # 显示 10 个用户单词作为选项
-    user_choice = st.radio(
-        "Which word did you hear?",
-        options=user_words,
-        key=f"listen_choice_{idx}"
-    )
+        # 生成并播放音频（每个单词播放一次）
+        audio_file = generate_tts_audio(current_word)
+        st.audio(audio_file, format="audio/mp3")
+        st.info(f"Word {idx + 1} of {len(user_words)}")
 
-    if st.button("Submit", key=f"listen_submit_{idx}"):
-        st.session_state.listen_answers[idx] = user_choice
-        if user_choice == current_word:
-            st.session_state.listen_score += 1
-            st.success("Correct! 🎉")
-        else:
-            st.error(f"Wrong. The correct answer was **{current_word}**.")
-        st.session_state.listen_index += 1
-        # 清除 radio 的选择（避免重复）
-        st.session_state[f"listen_choice_{idx}"] = None
-        st.experimental_rerun()  # 重新运行以显示下一个单词
+        # 显示全部 10 个单词作为选项
+        user_choice = st.radio(
+            "Which word did you hear?",
+            options=user_words,
+            key=f"listen_choice_{idx}"
+        )
 
-    # 游戏结束
-    if st.session_state.listen_index >= len(user_words):
+        # 点击 Submit 后立即进入下一个单词
+        if st.button("Submit", key=f"listen_submit_{idx}"):
+            st.session_state.listen_answers[idx] = user_choice
+            if user_choice == current_word:
+                st.session_state.listen_score += 1
+                st.success("Correct! 🎉")
+            else:
+                st.error(f"Wrong. The correct answer was **{current_word}**.")
+            st.session_state.listen_index += 1
+            st.experimental_rerun()  # 立即刷新页面显示下一个单词
+
+    else:
+        # 游戏结束
         st.success(f"Game finished! Your score: {st.session_state.listen_score}/{len(user_words)}")
         df = pd.DataFrame({
             "Word": user_words,
@@ -149,11 +152,12 @@ def play_listen_game(user_words):
         })
         st.subheader("Your results")
         st.table(df)
+
         # 重置状态以便下次玩
+        st.session_state.game_started = False
         st.session_state.listen_index = 0
         st.session_state.listen_score = 0
         st.session_state.listen_answers = [""] * 10
-
     
 # ------------------- define Scramble Game -------------------
 def scramble_word(w):
