@@ -11,10 +11,21 @@ import io
 from gtts import gTTS
 import os
 
-# 初始化 session_state 变量
-if 'user_words' not in st.session_state:
-    st.session_state.user_words = []
-AUDIO_DIR = "audio"
+# Session State 初始化
+# ------------------------------
+# 所有自定义变量统一初始化，避免 AttributeError
+default_state = {
+    'user_words': [],        # 用户输入的单词列表
+    'game_started': False,   # 游戏是否开始
+    'current_index': 0,      # 当前进行到的单词索引
+    'score': 0,              # 用户分数
+    'selected_word': None,   # Listen & Choose 游戏中用户当前选择的单词
+    'example_sentences': [], # Fill-in-the-blank 游戏的例句列表
+}
+
+for key, default_value in default_state.items():
+    if key not in st.session_state:
+        st.session_state[key] = default_value
 
 def ensure_audio_folder():
     os.makedirs(AUDIO_DIR, exist_ok=True)
