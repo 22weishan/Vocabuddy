@@ -414,7 +414,6 @@ if st.session_state.game_started and st.session_state.game_mode == "Listen & Cho
                 st.error(f"Wrong. The correct answer was **{current_word}**.")
             st.session_state.listen_index += 1
             # 清空 radio 的选择，准备下一个单词
-            st.session_state[f"listen_choice_{idx}"] = None
             st.experimental_rerun()  # 立即显示下一个单词
 
     else:
