@@ -12,7 +12,6 @@ from gtts import gTTS
 import os
 
 
-import streamlit as st
 
 # ------------------------------
 # Session State 初始化
@@ -45,15 +44,6 @@ st.session_state.game_mode = st.selectbox(
     index=0,  # 默认选择第一个
     key="game_mode_selectbox"  # 唯一 key
 )
-
-# ------------------------------
-# 示例：使用 session_state 的其他地方
-# ------------------------------
-# 判断游戏是否开始
-if st.session_state.game_started:
-    st.write(f"游戏已经开始！当前模式：{st.session_state.game_mode}")
-else:
-    st.write("请选择游戏模式并开始游戏。")
 
 
 # ------------- take audio ---------------------
@@ -147,6 +137,16 @@ def play_listen_game(user_words):
         st.warning("Please provide exactly 10 words first.")
         return
 
+    # 初始化状态
+    if "listen_index" not in st.session_state:
+        st.session_state.listen_index = 0
+    if "listen_score" not in st.session_state:
+        st.session_state.listen_score = 0
+    if "listen_answers" not in st.session_state:
+        st.session_state.listen_answers = [""] * 10
+    if "audio_ready" not in st.session_state:
+        st.session_state.audio_ready = False  # 是否显示当前单词音频和选项
+
     idx = st.session_state.listen_index
 
     # 游戏未结束
@@ -159,6 +159,7 @@ def play_listen_game(user_words):
 
         # 只有点击播放按钮后才显示音频和选择
         if st.session_state.audio_ready:
+            # 播放音频
             audio_file = generate_tts_audio(current_word)
             st.audio(audio_file, format="audio/mp3")
             st.info(f"Word {idx + 1} of {len(user_words)}")
@@ -203,50 +204,6 @@ def play_listen_game(user_words):
         st.session_state.listen_score = 0
         st.session_state.listen_answers = [""] * 10
         st.session_state.audio_ready = False
-
-# ------------------- 主流程中调用 -------------------
-if st.session_state.user_words and len(st.session_state.user_words) == 10:
-    st.markdown("### 2. Choose a game and start")
-    st.session_state.game_mode = st.selectbox(
-        "Choose game mode",
-        ["Scrambled Letters Game", "Matching Game", "Listen & Choose"],
-        index=0
-    )
-
-    if st.button("Start Game"):
-        st.session_state.game_started = True
-
-        # 重置 Scramble Game 状态
-        st.session_state.scramble_index = 0
-        st.session_state.scramble_score = 0
-        st.session_state.scramble_answers = [""] * 10
-        st.session_state.scramble_scrambled = [""] * 10
-
-        # 重置 Matching Game 状态
-        st.session_state.matching_answers = {}
-        st.session_state.matching_score = 0
-        st.session_state.matching_words_generated = False
-
-        # 重置 Listen & Choose 状态
-        st.session_state.listen_index = 0
-        st.session_state.listen_score = 0
-        st.session_state.listen_answers = [""] * 10
-        st.session_state.audio_ready = False
-
-        # 可以打乱用户单词（可选）
-        random.shuffle(st.session_state.user_words)
-
-# ------------------- 调用对应游戏 -------------------
-if st.session_state.game_started:
-    if st.session_state.game_mode == "Scrambled Letters Game":
-        # 调用 Scramble Game 函数
-        pass  # 你的原来逻辑
-    elif st.session_state.game_mode == "Matching Game":
-        play_matching_game()
-    elif st.session_state.game_mode == "Listen & Choose":
-        play_listen_game(st.session_state.user_words)
-
-
     
 # ------------------- define Scramble Game -------------------
 def scramble_word(w):
