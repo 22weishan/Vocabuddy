@@ -1,7 +1,7 @@
 import streamlit as st
 import random
-import re 
 import pandas as pd
+import pytesseract
 from PIL import Image, UnidentifiedImageError
 import docx
 import PyPDF2
@@ -36,204 +36,36 @@ def baidu_translate(q, from_lang="auto", to_lang="zh"):
     except Exception:
         return q
 
-# ------------------- Merriam-Webster API -------------------
-MW_API_KEY = "b03334be-a55f-4416-9ff4-782b15a4dc77"  
+# ------------------- Collins Dictionary API -------------------
+COLLINS_API_KEY = "T5hNEh8i69hXx80wFZGCKzbRe3C5su4uFlcyklLJ8wVcDFYw4RXGcGfQloDORrdz"   # <- Fill in your Collins API key
+COLLINS_BASE_URL = "https://api.collinsdictionary.com/api/v1/dictionaries/english/entries/"
 
-def get_example_sentence_mw(word):
+def get_collins_audio(word):
     """
-    Get example sentence from Merriam-Webster Collegiate API.
-    Fallback to a template if no sentence is found.
+    Return audio URL for a word using Collins API.
+    If not found, return None.
     """
-    url = f"https://www.dictionaryapi.com/api/v3/references/collegiate/json/{word}?key={MW_API_KEY}"
+    url = COLLINS_BASE_URL + word.lower()
+    headers = {"accessKey": COLLINS_API_KEY}
+
     try:
-        r = requests.get(url)
+        r = requests.get(url, headers=headers, timeout=5)
+        if r.status_code != 200:
+            return None
         data = r.json()
-        if not data or not isinstance(data[0], dict):
-            return f"I like to {word} every day."
-        defs = data[0].get("def", [])
-        for d in defs:
-            sseq = d.get("sseq", [])
-            for sense_group in sseq:
-                for sense in sense_group:
-                    dt = sense[1].get("dt", [])
-                    for item in dt:
-                        if item[0] == "vis":  # example sentences
-                            vis_list = item[1]
-                            if vis_list:
-                                return vis_list[0]["t"]
-        return f"I like to {word} every day."
-    except:
-        return f"I like to {word} every day."
 
-# ------------------- create blank in sentence -------------------
-def create_blank_sentence(word, sentence):
-    """
-    Replace the word in the sentence with _____.
-    Use regex to match different cases and various forms of the word.
-    """
-    if not sentence:
-        return f"Please fill in the blank: I like to {word}."
-
-    # 创建一个更灵活的正则表达式，匹配单词的不同形式
-    # 首先尝试匹配原词（忽略大小写）
-    pattern = re.compile(rf'\b{re.escape(word)}\b', re.IGNORECASE)
-    
-    # 如果找到原词，替换它
-    if pattern.search(sentence):
-        new_sentence = pattern.sub("_____", sentence)
-        return new_sentence
-    
-    # 如果没有找到原词，返回带提示的句子
-    return f"{sentence} (fill in: {word})"
-
-# ------------------- 改进的 Sentence Completion 游戏逻辑 -------------------
-def prepare_sentence_completion_game():
-    """准备句子填空游戏的数据"""
-    if "sc_sentences_prepared" not in st.session_state or not st.session_state.sc_sentences_prepared:
-        st.session_state.sc_sentences = []
-        st.session_state.sc_correct_words = []  # 存储正确答案
-        st.session_state.sc_options = []  # 存储每个问题的选项
-        
-        # 为每个单词生成例句和选项
-        words = st.session_state.user_words[:10]  # 确保只取前10个单词
-        
-        for word in words:
-            # 获取例句
-            example = get_example_sentence_mw(word)
-            
-            # 创建挖空句子
-            blanked_sentence = create_blank_sentence(word, example)
-            
-            # 为这个空生成3个干扰选项 + 正确答案
-            # 从用户单词中随机选择3个不同的单词作为干扰项
-            other_words = [w for w in words if w != word]
-            distractors = random.sample(other_words, min(3, len(other_words)))
-            
-            # 创建选项列表（包含正确答案）
-            options = distractors + [word]
-            random.shuffle(options)  # 打乱选项顺序
-            
-            # 存储数据
-            st.session_state.sc_sentences.append(blanked_sentence)
-            st.session_state.sc_correct_words.append(word)
-            st.session_state.sc_options.append(options)
-        
-        # 初始化用户答案和分数
-        st.session_state.sc_user_answers = [""] * 10
-        st.session_state.sc_score = 0
-        st.session_state.sc_current_index = 0
-        st.session_state.sc_sentences_prepared = True
-        st.session_state.sc_game_finished = False
-
-def play_sentence_completion_game():
-    """运行句子填空游戏"""
-    prepare_sentence_completion_game()
-    
-    idx = st.session_state.sc_current_index
-    
-    if not st.session_state.sc_game_finished and idx < 10:
-        # 显示当前问题
-        st.subheader(f"Sentence Completion ({idx + 1}/10)")
-        
-        # 显示挖空句子
-        sentence = st.session_state.sc_sentences[idx]
-        st.markdown(f"**Sentence:** {sentence}")
-        
-        # 显示选项
-        options = st.session_state.sc_options[idx]
-        correct_word = st.session_state.sc_correct_words[idx]
-        
-        # 创建选择框
-        selected = st.selectbox(
-            "Choose the correct word to fill in the blank:",
-            options=["Select an answer"] + options,
-            key=f"sc_select_{idx}"
-        )
-        
-        # 存储用户选择
-        if selected != "Select an answer":
-            st.session_state.sc_user_answers[idx] = selected
-        
-        # 导航按钮
-        col1, col2, col3 = st.columns([1, 1, 1])
-        
-        with col1:
-            if idx > 0:
-                if st.button("Previous"):
-                    st.session_state.sc_current_index -= 1
-                    st.rerun()
-        
-        with col2:
-            if st.button("Next"):
-                if selected == "Select an answer":
-                    st.warning("Please select an answer before proceeding.")
-                else:
-                    if idx < 9:
-                        st.session_state.sc_current_index += 1
-                        st.rerun()
-                    else:
-                        # 最后一个问题，准备提交
-                        st.session_state.sc_current_index = 10
-        
-        with col3:
-            if st.button("Submit All Answers"):
-                # 计算分数
-                score = 0
-                for i in range(10):
-                    user_answer = st.session_state.sc_user_answers[i]
-                    correct_answer = st.session_state.sc_correct_words[i]
-                    if user_answer and user_answer.lower() == correct_answer.lower():
-                        score += 1
-                
-                st.session_state.sc_score = score
-                st.session_state.sc_game_finished = True
-                st.rerun()
-    
-    elif st.session_state.sc_game_finished:
-        # 显示结果
-        show_sentence_completion_results()
-
-def show_sentence_completion_results():
-    """显示句子填空游戏的结果"""
-    st.success(f"🎉 Game Finished! Your score: {st.session_state.sc_score}/10")
-    
-    # 创建结果表格
-    results_data = []
-    for i in range(10):
-        user_answer = st.session_state.sc_user_answers[i]
-        correct_answer = st.session_state.sc_correct_words[i]
-        is_correct = user_answer and user_answer.lower() == correct_answer.lower()
-        
-        results_data.append({
-            "No.": i + 1,
-            "Sentence": st.session_state.sc_sentences[i],
-            "Correct Word": correct_answer,
-            "Your Answer": user_answer if user_answer else "Not answered",
-            "Result": "✅ Correct" if is_correct else "❌ Incorrect"
-        })
-    
-    # 显示结果表格
-    st.subheader("📊 Your Results")
-    results_df = pd.DataFrame(results_data)
-    st.dataframe(results_df, use_container_width=True)
-    
-    # 显示详细反馈
-    st.subheader("📝 Detailed Feedback")
-    for i, result in enumerate(results_data):
-        with st.expander(f"Question {i+1}: {'✅' if result['Result'] == '✅ Correct' else '❌'}"):
-            st.write(f"**Sentence:** {result['Sentence']}")
-            st.write(f"**Correct answer:** {result['Correct Word']}")
-            st.write(f"**Your answer:** {result['Your Answer']}")
-    
-    # 重新开始按钮
-    if st.button("Play Again"):
-        # 重置游戏状态
-        st.session_state.sc_sentences_prepared = False
-        st.session_state.sc_game_finished = False
-        st.session_state.sc_current_index = 0
-        st.session_state.game_started = False
-        st.rerun()
-
+        # Collins typical structure:
+        # results -> entryContent -> pronunciations -> audio -> href
+        for result in data.get("results", []):
+            entry = result.get("entryContent", {})
+            prons = entry.get("pronunciations", [])
+            for p in prons:
+                audio_info = p.get("audio")
+                if audio_info and "href" in audio_info:
+                    return audio_info["href"]
+        return None
+    except Exception:
+        return None
 
 # ------------------- Reading files -------------------
 def read_file(file):
@@ -261,7 +93,104 @@ def read_file(file):
         return []
     return [w.strip() for w in words if w.strip()]
 
+# ------------------- reading from images -------------------
+def read_image(image_file):
+    """Run OCR via pytesseract; return list of words. If OCR fails, return []."""
+    try:
+        # image_file is UploadFile; use BytesIO
+        img = Image.open(io.BytesIO(image_file.read()))
+        text = pytesseract.image_to_string(img)
+        words = [w.strip() for w in text.split() if w.strip()]
+        return words
+    except UnidentifiedImageError:
+        return []
+    except Exception:
+        # If pytesseract or tesseract binary is missing, return []
+        return []
 
+# ------------------- Listen & Choose Game -------------------
+def prepare_listen_game():
+    """Reset the per-game state."""
+    st.session_state.listen_words_generated = True
+    st.session_state.listen_options = {}
+    st.session_state.listen_correct = {}
+    st.session_state.listen_user_choice = {}
+    st.session_state.listen_score = 0
+
+
+def play_listen_game():
+    words = st.session_state.user_words
+
+    st.subheader("🔊 Listen & Choose the Correct Word")
+
+    # Generate question only once
+    if "listen_words_generated" not in st.session_state or not st.session_state.listen_words_generated:
+        prepare_listen_game()
+
+        for w in words:
+            audio = get_collins_audio(w)
+
+            st.session_state.listen_options[w] = {
+                "audio": audio,
+                "choices": []
+            }
+
+            # Choices: 1 correct + 3 random other words
+            distractors = [x for x in words if x != w]
+            if len(distractors) >= 3:
+                sampled = random.sample(distractors, 3)
+            else:
+                sampled = random.choices(distractors, k=3)
+
+            choices = sampled + [w]
+            random.shuffle(choices)
+            st.session_state.listen_options[w]["choices"] = choices
+            st.session_state.listen_correct[w] = w
+
+    # Show each question
+    for w in words:
+        audio = st.session_state.listen_options[w]["audio"]
+        choices = st.session_state.listen_options[w]["choices"]
+
+        st.markdown(f"#### Word Audio:")
+        if audio:
+            st.audio(audio)
+        else:
+            st.warning(f"No audio found for **{w}**, you may guess.")
+
+        st.session_state.listen_user_choice[w] = st.selectbox(
+            f"Select the correct word:",
+            options=["Select"] + choices,
+            key=f"listen_{w}"
+        )
+
+    if st.button("Submit Listen & Choose"):
+        score = 0
+        results = []
+
+        for w in words:
+            user_ans = st.session_state.listen_user_choice.get(w, "Select")
+            correct = st.session_state.listen_correct[w]
+            if user_ans == correct:
+                score += 1
+            results.append((w, user_ans, correct, user_ans == correct))
+
+        st.session_state.listen_score = score
+
+        st.success(f"Your score: {score}/10")
+
+        df = pd.DataFrame({
+            "Word": [r[0] for r in results],
+            "Your Answer": [r[1] for r in results],
+            "Correct Word": [r[2] for r in results],
+            "Correct?": [r[3] for r in results]
+        })
+
+        st.subheader("Your Results")
+        st.table(df)
+
+        st.session_state.game_started = False
+    
 # ------------------- define Scramble Game -------------------
 def scramble_word(w):
     letters = list(w)
@@ -381,17 +310,6 @@ if "scramble_scrambled" not in st.session_state:
 if "translation_cache" not in st.session_state:
     st.session_state.translation_cache = {}
 
-# Sentence Completion Game state
-if "sc_sentences" not in st.session_state:
-    st.session_state.sc_sentences = [""] * 10
-if "sc_user_answers" not in st.session_state:
-    st.session_state.sc_user_answers = [""] * 10
-if "sc_index" not in st.session_state:
-    st.session_state.sc_index = 0
-if "sc_score" not in st.session_state:
-    st.session_state.sc_score = 0
-
-
 # ------------------- Users Input -------------------
 st.markdown("### 1. Provide 10 words")
 words_input = st.text_area("Please enter 10 words (use space or enter in another line)", height=120)
@@ -425,10 +343,10 @@ if st.session_state.user_words:
 
 # ------------------- choose game mode -------------------
 if st.session_state.user_words and len(st.session_state.user_words) == 10:
-    st.markdown("### 2. Start your vacab journey!")
+    st.markdown("### 2. Choose a game and start")
     st.session_state.game_mode = st.selectbox(
         "Choose game mode",
-        ["Scrambled Letters Game", "Matching Game", "Sentence Completion Game"],
+        ["Scrambled Letters Game", "Matching Game","Listen & Choose"],
         index=0
     )
 
@@ -446,21 +364,8 @@ if st.session_state.user_words and len(st.session_state.user_words) == 10:
         st.session_state.matching_words_generated = False
         # shuffle words for scramble game (store as new list)
         random.shuffle(st.session_state.user_words)
-        
-            # reset Sentence Completion
-    st.session_state.sc_index = 0
-    st.session_state.sc_score = 0
-    st.session_state.sc_sentences = []
-    st.session_state.sc_user_answers = [""] * 10
 
-    # Generate example sentences ONCE
-    for w in st.session_state.user_words:
-        example = get_example_sentence_mw(w)
-        blanked = create_blank_sentence(w, example)
-        st.session_state.sc_sentences.append((w, blanked))
-
-
-# -------------------Scrambled Game -------------------
+# ------------------- Scrambled Game -------------------
 if st.session_state.game_started and st.session_state.game_mode == "Scrambled Letters Game":
     st.subheader("Spell the word in correct order")
     idx = st.session_state.scramble_index
@@ -506,4 +411,6 @@ if st.session_state.game_started and st.session_state.game_mode == "Scrambled Le
 # ------------------- Matching Game -------------------
 if st.session_state.game_started and st.session_state.game_mode == "Matching Game":
     play_matching_game()
-
+# ------------------- Listen&choose Game -------------------
+if st.session_state.game_started and st.session_state.game_mode == "Listen & Choose":
+    play_listen_game()
