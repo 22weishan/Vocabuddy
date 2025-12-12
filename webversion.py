@@ -13,9 +13,12 @@ import os
 
 import streamlit as st
 
+import streamlit as st
+
 # ------------------------------
 # Session State 初始化
 # ------------------------------
+# 所有自定义变量统一初始化，避免 AttributeError
 default_state = {
     'user_words': [],        # 用户输入的单词列表
     'game_started': False,   # 游戏是否开始
@@ -33,13 +36,26 @@ for key, default_value in default_state.items():
 # ------------------------------
 # 游戏模式选择 Selectbox
 # ------------------------------
-# 使用唯一 key，避免重复 ID 错误
+# 使用唯一 key，避免重复 Element ID
+if st.session_state.game_mode is None:
+    st.session_state.game_mode = "Scrambled Letters Game"  # 默认值
+
 st.session_state.game_mode = st.selectbox(
     label="Choose game mode",
     options=["Scrambled Letters Game", "Matching Game", "Listen & Choose"],
     index=0,  # 默认选择第一个
-    key="game_mode_selectbox"  # 唯一 key，防止 Duplicate Element ID
+    key="game_mode_selectbox"  # 唯一 key
 )
+
+# ------------------------------
+# 示例：使用 session_state 的其他地方
+# ------------------------------
+# 判断游戏是否开始
+if st.session_state.game_started:
+    st.write(f"游戏已经开始！当前模式：{st.session_state.game_mode}")
+else:
+    st.write("请选择游戏模式并开始游戏。")
+
 
 # ------------- take audio ---------------------
 def ensure_audio_folder():
