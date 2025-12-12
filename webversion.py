@@ -8,15 +8,24 @@ import PyPDF2
 import requests
 import hashlib
 import io
-
 from gtts import gTTS
+import os
 
-def tts_audio(word):
-    tts = gTTS(word, lang="en")
-    fname = f"tmp_{word}.mp3"
-    tts.save(fname)
-    return fname
+AUDIO_DIR = "audio"
 
+def ensure_audio_folder():
+    os.makedirs(AUDIO_DIR, exist_ok=True)
+
+def generate_tts_audio(word):
+    """If audio doesn't exist, generate TTS."""
+    ensure_audio_folder()
+    audio_path = os.path.join(AUDIO_DIR, f"{word}.mp3")
+
+    if not os.path.exists(audio_path):
+        tts = gTTS(word, lang='en')
+        tts.save(audio_path)
+
+    return audio_path
 
 # ------------------- Baidu Translate API -------------------
 APPID = "20251130002509027"  # <- 在此填入你的 APPID
@@ -87,87 +96,38 @@ def read_image(image_file):
         return []
 
 # ------------------- Listen & Choose Game -------------------
-def prepare_listen_game():
-    """Reset the per-game state."""
-    st.session_state.listen_words_generated = True
-    st.session_state.listen_options = {}
-    st.session_state.listen_correct = {}
-    st.session_state.listen_user_choice = {}
-    st.session_state.listen_score = 0
+def play_listen_game(words):
+    st.header("🎧 Listen & Choose")
 
+    if not words:
+        st.warning("Please upload words first.")
+        return
 
-def play_listen_game():
-    words = st.session_state.user_words
+    # 随机选一个目标词
+    answer = random.choice(words)
 
-    st.subheader("🔊 Listen & Choose the Correct Word")
+    # 生成音频
+    audio_file = generate_tts_audio(answer)
 
-    # Generate question only once
-    if "listen_words_generated" not in st.session_state or not st.session_state.listen_words_generated:
-        prepare_listen_game()
+    # 播放音频
+    with open(audio_file, "rb") as f:
+        st.audio(f.read(), format="audio/mp3")
 
-        for w in words:
-            audio = get_collins_audio(w)
+    # 生成选项（1 正确 + 3 随机干扰项）
+    options = set([answer])
+    while len(options) < 4:
+        w = random.choice(words)
+        options.add(w)
+    options = list(options)
+    random.shuffle(options)
 
-            st.session_state.listen_options[w] = {
-                "audio": audio,
-                "choices": []
-            }
+    user_choice = st.radio("Which word did you hear?", options)
 
-            # Choices: 1 correct + 3 random other words
-            distractors = [x for x in words if x != w]
-            if len(distractors) >= 3:
-                sampled = random.sample(distractors, 3)
-            else:
-                sampled = random.choices(distractors, k=3)
-
-            choices = sampled + [w]
-            random.shuffle(choices)
-            st.session_state.listen_options[w]["choices"] = choices
-            st.session_state.listen_correct[w] = w
-
-    # Show each question
-    for w in words:
-        audio = st.session_state.listen_options[w]["audio"]
-        choices = st.session_state.listen_options[w]["choices"]
-
-        st.markdown(f"#### Word Audio:")
-        if audio:
-            st.audio(audio)
+    if st.button("Submit"):
+        if user_choice == answer:
+            st.success("Correct! 🎉")
         else:
-            st.warning(f"No audio found for **{w}**, you may guess.")
-
-        st.session_state.listen_user_choice[w] = st.selectbox(
-            f"Select the correct word:",
-            options=["Select"] + choices,
-            key=f"listen_{w}"
-        )
-
-    if st.button("Submit Listen & Choose"):
-        score = 0
-        results = []
-
-        for w in words:
-            user_ans = st.session_state.listen_user_choice.get(w, "Select")
-            correct = st.session_state.listen_correct[w]
-            if user_ans == correct:
-                score += 1
-            results.append((w, user_ans, correct, user_ans == correct))
-
-        st.session_state.listen_score = score
-
-        st.success(f"Your score: {score}/10")
-
-        df = pd.DataFrame({
-            "Word": [r[0] for r in results],
-            "Your Answer": [r[1] for r in results],
-            "Correct Word": [r[2] for r in results],
-            "Correct?": [r[3] for r in results]
-        })
-
-        st.subheader("Your Results")
-        st.table(df)
-
-        st.session_state.game_started = False
+            st.error(f"Wrong. The correct answer was **{answer}**.")
     
 # ------------------- define Scramble Game -------------------
 def scramble_word(w):
@@ -389,6 +349,7 @@ if st.session_state.game_started and st.session_state.game_mode == "Scrambled Le
 # ------------------- Matching Game -------------------
 if st.session_state.game_started and st.session_state.game_mode == "Matching Game":
     play_matching_game()
-# ------------------- Listen&choose Game -------------------
-if st.session_state.game_started and st.session_state.game_mode == "Listen & Choose":
-    play_listen_game()
+# ------------------- Listen & Choose ------------------- 
+if mode == "Listen & Choose":
+    play_listen_game(word_list)
+
