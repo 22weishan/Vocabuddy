@@ -16,7 +16,7 @@ AUDIO_DIR = "audio"
 def ensure_audio_folder():
     os.makedirs(AUDIO_DIR, exist_ok=True)
 
-def generate_tts_audio(user_words):
+def generate_tts_audio(word):
     """If audio doesn't exist, generate TTS."""
     ensure_audio_folder()
     audio_path = os.path.join(AUDIO_DIR, f"{word}.mp3")
@@ -99,7 +99,7 @@ def read_image(image_file):
 def play_listen_game(user_words):
     st.header("🎧 Listen & Choose")
 
-    if not words:
+    if not user_words:
         st.warning("Please upload words first.")
         return
 
@@ -349,5 +349,9 @@ if st.session_state.game_started and st.session_state.game_mode == "Scrambled Le
 # ------------------- Matching Game -------------------
 if st.session_state.game_started and st.session_state.game_mode == "Matching Game":
     play_matching_game()
+# ------------------- Listen & Choose -------------------
+if st.session_state.game_mode == "Listen & Choose":
+    play_listen_game(st.session_state.user_words)
+
 
 
