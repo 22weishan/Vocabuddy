@@ -104,7 +104,7 @@ def play_listen_game(user_words):
         return
 
     # 随机选一个目标词
-    answer = random.choice(words)
+    answer = random.choice(user_words)
 
     # 生成音频
     audio_file = generate_tts_audio(answer)
