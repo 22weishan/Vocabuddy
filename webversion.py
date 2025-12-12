@@ -116,7 +116,7 @@ def play_listen_game(user_words):
     # 生成选项（1 正确 + 3 随机干扰项）
     options = set([answer])
     while len(options) < 4:
-        w = random.choice(words)
+        w = random.choice(user_words)
         options.add(w)
     options = list(options)
     random.shuffle(options)
