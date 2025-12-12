@@ -277,7 +277,7 @@ if st.session_state.user_words and len(st.session_state.user_words) == 10:
     st.markdown("### 2. Start your vacab journey!")
     st.session_state.game_mode = st.selectbox(
         "Choose game mode",
-        ["Spell it", "Define it", "Use it"],
+        ["Scrambled Letters Game", "Matching Game", "Sentence Completion Game"],
         index=0
     )
 
