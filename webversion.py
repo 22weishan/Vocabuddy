@@ -1,5 +1,6 @@
 import streamlit as st
 import random
+import re 
 import pandas as pd
 from PIL import Image, UnidentifiedImageError
 import docx
