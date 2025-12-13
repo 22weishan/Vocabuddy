@@ -264,6 +264,77 @@ def play_matching_game():
         st.table(df)
         # end game
         st.session_state.game_started = False
+        
+# ------------------- Fill-in-the-Blank Game -------------------
+def get_example_sentence(word):
+    """生成示例句子，可以替换为词典API"""
+    templates = [
+        f"I really like the {word} in the park.",
+        f"She bought a new {word} yesterday.",
+        f"The {word} is very expensive.",
+        f"Do you know where the {word} is?",
+        f"He gave me a {word} as a gift.",
+        f"We saw a beautiful {word} on our trip.",
+        f"The {word} belongs to my friend.",
+        f"I can't find my {word} anywhere.",
+        f"This {word} is very useful.",
+        f"They talked about the {word} all day."
+    ]
+    import random
+    return random.choice(templates)
+
+def create_blank_sentence(word, sentence):
+    """将句子中的目标词挖空"""
+    import re
+    pattern = re.compile(rf"\b{re.escape(word)}\b", re.IGNORECASE)
+    blanked = pattern.sub("_____", sentence)
+    return blanked
+
+def play_fill_in_the_blank():
+    st.subheader("Fill-in-the-Blank Game")
+
+    # 用户输入的单词列表
+    if "user_words" not in st.session_state or len(st.session_state.user_words) != 10:
+        st.warning("Please provide exactly 10 words first.")
+        return
+    user_words = st.session_state.user_words
+
+    # 初始化 session_state
+    if "fib_idx" not in st.session_state or st.session_state.get("fib_word_list") != user_words:
+        st.session_state.fib_idx = 0
+        st.session_state.fib_score = 0
+        st.session_state.fib_word_list = user_words
+        st.session_state.fib_sentences = [get_example_sentence(w) for w in user_words]
+
+    idx = st.session_state.fib_idx
+    if idx >= len(user_words):
+        st.success(f"Game finished! Your score: {st.session_state.fib_score}/{len(user_words)}")
+        if st.button("Restart Fill-in-the-Blank"):
+            st.session_state.fib_idx = 0
+            st.session_state.fib_score = 0
+            st.session_state.fib_sentences = [get_example_sentence(w) for w in user_words]
+        return
+
+    current_word = user_words[idx]
+    current_sentence = st.session_state.fib_sentences[idx]
+    blanked_sentence = create_blank_sentence(current_word, current_sentence)
+    st.write(f"Sentence {idx+1}: {blanked_sentence}")
+
+    # 选项：使用用户输入的 10 个单词随机顺序
+    import random
+    options = user_words.copy()
+    random.shuffle(options)
+
+    choice = st.radio("Choose the correct word:", options, key=f"fib_choice_{idx}")
+
+    if st.button("Submit", key=f"fib_submit_{idx}"):
+        if choice.lower() == current_word.lower():
+            st.success("Correct!")
+            st.session_state.fib_score += 1
+        else:
+            st.error(f"Incorrect! The correct word was '{current_word}'.")
+        st.session_state.fib_idx += 1
+        st.experimental_rerun()
 
 # ------------------- Streamlit Design -------------------
 st.set_page_config(page_title="Vocabuddy", layout="centered")
@@ -327,7 +398,7 @@ if st.session_state.user_words and len(st.session_state.user_words) == 10:
     st.markdown("### 2. Choose a game and start")
     st.session_state.game_mode = st.selectbox(
         "Choose game mode",
-        ["Scrambled Letters Game", "Matching Game","Listen & Choose"],
+        ["Scrambled Letters Game", "Matching Game", "Listen & Choose", "Fill-in-the-Blank"],
         index=0
     )
 
@@ -450,3 +521,9 @@ if st.session_state.game_started and st.session_state.game_mode == "Listen & Cho
         st.session_state.listen_index = 0
         st.session_state.listen_score = 0
         st.session_state.listen_answers = [""] * 10
+        
+# ------------------- Fill-in-the-Blank -------------------
+if st.session_state.game_started and st.session_state.game_mode == "Fill-in-the-Blank":
+    play_fill_in_the_blank()
+
+
