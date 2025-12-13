@@ -11,8 +11,8 @@ import io
 from gtts import gTTS
 import os
 
+AUDIO_DIR = "audio"
 
-# ------------- take audio ---------------------
 def ensure_audio_folder():
     os.makedirs(AUDIO_DIR, exist_ok=True)
 
@@ -110,6 +110,8 @@ def play_listen_game(user_words):
         st.session_state.listen_score = 0
     if "listen_answers" not in st.session_state:
         st.session_state.listen_answers = [""] * 10
+    if "audio_ready" not in st.session_state:
+        st.session_state.audio_ready = False  # 是否显示当前单词音频和选项
 
     idx = st.session_state.listen_index
 
@@ -117,28 +119,37 @@ def play_listen_game(user_words):
     if idx < len(user_words):
         current_word = user_words[idx]
 
-        # 生成并播放音频（每个单词播放一次）
-        audio_file = generate_tts_audio(current_word)
-        st.audio(audio_file, format="audio/mp3")
-        st.info(f"Word {idx + 1} of {len(user_words)}")
+        # 播放下一个音频按钮
+        if st.button("Play Next Audio"):
+            st.session_state.audio_ready = True  # 用户点击后显示音频和选项
 
-        # 显示全部 10 个单词作为选项
-        user_choice = st.radio(
-            "Which word did you hear?",
-            options=user_words,
-            key=f"listen_choice_{idx}"
-        )
+        # 只有点击播放按钮后才显示音频和选择
+        if st.session_state.audio_ready:
+            # 播放音频
+            audio_file = generate_tts_audio(current_word)
+            st.audio(audio_file, format="audio/mp3")
+            st.info(f"Word {idx + 1} of {len(user_words)}")
 
-        # 点击 Submit 后立即进入下一个单词
-        if st.button("Submit", key=f"listen_submit_{idx}"):
-            st.session_state.listen_answers[idx] = user_choice
-            if user_choice == current_word:
-                st.session_state.listen_score += 1
-                st.success("Correct! 🎉")
-            else:
-                st.error(f"Wrong. The correct answer was **{current_word}**.")
-            st.session_state.listen_index += 1
-            st.experimental_rerun()  # 立即刷新页面显示下一个单词
+            # 显示全部 10 个单词作为选项
+            user_choice = st.radio(
+                "Which word did you hear?",
+                options=user_words,
+                key=f"listen_choice_{idx}"
+            )
+
+            # 点击 Submit 后记录答案，并准备下一个单词
+            if st.button("Submit", key=f"listen_submit_{idx}"):
+                st.session_state.listen_answers[idx] = user_choice
+                if user_choice == current_word:
+                    st.session_state.listen_score += 1
+                    st.success("Correct! 🎉")
+                else:
+                    st.error(f"Wrong. The correct answer was **{current_word}**.")
+
+                # 更新索引，准备下一个单词
+                st.session_state.listen_index += 1
+                st.session_state.audio_ready = False  # 重置播放状态
+                st.experimental_rerun()
 
     else:
         # 游戏结束
@@ -153,11 +164,12 @@ def play_listen_game(user_words):
         st.subheader("Your results")
         st.table(df)
 
-        # 重置状态以便下次玩
+        # 重置状态方便下次游戏
         st.session_state.game_started = False
         st.session_state.listen_index = 0
         st.session_state.listen_score = 0
         st.session_state.listen_answers = [""] * 10
+        st.session_state.audio_ready = False
 
     
 # ------------------- define Scramble Game -------------------
@@ -438,5 +450,3 @@ if st.session_state.game_started and st.session_state.game_mode == "Listen & Cho
         st.session_state.listen_index = 0
         st.session_state.listen_score = 0
         st.session_state.listen_answers = [""] * 10
-
-
