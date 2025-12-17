@@ -510,7 +510,7 @@ if st.session_state.game_started and st.session_state.game_mode == "Listen & Cho
             else:
                 st.error(f"Wrong. The correct answer was **{current_word}**.")
             st.session_state.listen_index += 1
-            st.experimental_rerun() 
+            st.rerun()
             
 
     else:
