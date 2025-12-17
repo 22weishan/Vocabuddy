@@ -228,7 +228,13 @@ def play_fill_in_the_blank():
         st.session_state.fib_score = 0
         st.session_state.fib_word_list = user_words
         st.session_state.fib_sentences = [get_example_sentence(w) for w in user_words]
+        # 新增：生成并保存随机选项顺序
+        import random
+        options = user_words.copy()
+        random.shuffle(options)
+        st.session_state.fib_options_order = options  # 保存洗牌后的顺序
 
+    
     idx = st.session_state.fib_idx
     if idx >= len(user_words):
         st.success(f"Game finished! Your score: {st.session_state.fib_score}/{len(user_words)}")
@@ -236,6 +242,10 @@ def play_fill_in_the_blank():
             st.session_state.fib_idx = 0
             st.session_state.fib_score = 0
             st.session_state.fib_sentences = [get_example_sentence(w) for w in user_words]
+            # 重新生成选项顺序
+            options = user_words.copy()
+            random.shuffle(options)
+            st.session_state.fib_options_order = options
         return
 
     current_word = user_words[idx]
@@ -243,10 +253,8 @@ def play_fill_in_the_blank():
     blanked_sentence = create_blank_sentence(current_word, current_sentence)
     st.write(f"Sentence {idx+1}: {blanked_sentence}")
 
-    # 选项：使用用户输入的 10 个单词随机顺序
-    import random
-    options = user_words.copy()
-    random.shuffle(options)
+    # 使用保存的选项顺序，而不是每次都重新洗牌
+    options = st.session_state.fib_options_order
 
     choice = st.radio("Choose the correct word:", options, key=f"fib_choice_{idx}")
 
