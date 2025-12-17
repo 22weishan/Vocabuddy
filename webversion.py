@@ -510,6 +510,6 @@ if st.session_state.game_started and st.session_state.game_mode == "Listen & Cho
 
 # ------------------- Sentence Builder -------------------
 if st.session_state.game_started and st.session_state.game_mode == "Sentence Builder":
-    play_sentence_builder_game()
+    sentence_builder_game()
 
 
