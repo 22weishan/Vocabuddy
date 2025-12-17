@@ -508,6 +508,3 @@ if st.session_state.game_started and st.session_state.game_mode == "Listen & Cho
         st.session_state.listen_score = 0
         st.session_state.listen_answers = [""] * 10
 
-# ------------------- Matching Game -------------------
-if st.session_state.game_started and st.session_state.game_mode == "Sentence Builder":
-    play_sentence_builder_game()
