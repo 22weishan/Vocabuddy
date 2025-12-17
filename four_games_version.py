@@ -475,6 +475,66 @@ if st.session_state.game_started and st.session_state.game_mode == "Matching Gam
 # ------------------- Listen & Choose -------------------
 if st.session_state.game_started and st.session_state.game_mode == "Listen & Choose":
     st.subheader("Listen & Choose Game")
+
+# ------------------- Listen & Choose -------------------
+if st.session_state.game_started and st.session_state.game_mode == "Listen & Choose":
+    st.subheader("Listen & Choose Game")
+
+    # 初始化状态
+    if "listen_index" not in st.session_state:
+        st.session_state.listen_index = 0
+    if "listen_score" not in st.session_state:
+        st.session_state.listen_score = 0
+    if "listen_answers" not in st.session_state:
+        st.session_state.listen_answers = [""] * 10
+
+    idx = st.session_state.listen_index
+    listen_words = st.session_state.listen_word_order
+    user_words = st.session_state.user_words
+    
+    if idx < len(listen_words):
+        current_word = listen_words[idx]
+        audio_file = generate_tts_audio(current_word)
+
+        st.audio(audio_file, format="audio/mp3")
+        st.info(f"Word {idx + 1} of {len(user_words)}")
+
+        # 显示全部 10 个单词作为选项
+        user_choice = st.radio(
+            "Which word did you hear?",
+            options=user_words,
+            key=f"listen_choice_{idx}"
+        )
+
+        if st.button("Submit", key=f"listen_submit_{idx}"):
+            st.session_state.listen_answers[idx] = user_choice
+            if user_choice == current_word:
+                st.session_state.listen_score += 1
+                st.success("Correct! 🎉")
+            else:
+                st.error(f"Wrong. The correct answer was **{current_word}**.")
+            st.session_state.listen_index += 1
+            st.rerun()
+            
+
+    else:
+        # 游戏结束
+        st.success(f"Game finished! Your score: {st.session_state.listen_score}/{len(user_words)}")
+        df = pd.DataFrame({
+            "Word": user_words,
+            "Your Answer": st.session_state.listen_answers,
+            "Correct?": [
+                ua == w for ua, w in zip(st.session_state.listen_answers, user_words)
+            ]
+        })
+        st.subheader("Your results")
+        st.table(df)
+
+        # 重置状态，方便下次游戏
+        st.session_state.game_started = False
+        st.session_state.listen_index = 0
+        st.session_state.listen_score = 0
+        st.session_state.listen_answers = [""] * 10
         
 # ------------------- Fill-in-the-Blank -------------------
 if st.session_state.game_started and st.session_state.game_mode == "Fill-in-the-Blank":
