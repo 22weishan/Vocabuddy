@@ -266,7 +266,7 @@ def play_matching_game():
         st.session_state.game_started = False
 
 def sentence_builder_game():
-    st.subheader("🧩 Sentence Builder")
+    st.subheader("Sentence Builder")
 
     st.write("Build a correct sentence using the target word.")
 
@@ -384,7 +384,7 @@ if st.session_state.user_words and len(st.session_state.user_words) == 10:
     st.markdown("### 2. Choose a game and start")
     st.session_state.game_mode = st.selectbox(
         "Choose game mode",
-        ["Scrambled Letters Game", "Matching Game","Listen & Choose"],
+        ["Scrambled Letters Game", "Matching Game", "Listen & Choose", "Sentence Builder"],
         index=0
     )
 
