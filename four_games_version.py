@@ -476,10 +476,6 @@ if st.session_state.game_started and st.session_state.game_mode == "Matching Gam
 if st.session_state.game_started and st.session_state.game_mode == "Listen & Choose":
     st.subheader("Listen & Choose Game")
 
-# ------------------- Listen & Choose -------------------
-if st.session_state.game_started and st.session_state.game_mode == "Listen & Choose":
-    st.subheader("Listen & Choose Game")
-
     # 初始化状态
     if "listen_index" not in st.session_state:
         st.session_state.listen_index = 0
