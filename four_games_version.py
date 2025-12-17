@@ -229,7 +229,6 @@ def play_fill_in_the_blank():
         st.session_state.fib_word_list = user_words
         st.session_state.fib_sentences = [get_example_sentence(w) for w in user_words]
         # 新增：生成并保存随机选项顺序
-        import random
         options = user_words.copy()
         random.shuffle(options)
         st.session_state.fib_options_order = options  # 保存洗牌后的顺序
