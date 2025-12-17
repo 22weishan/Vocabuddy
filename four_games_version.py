@@ -265,7 +265,7 @@ def play_fill_in_the_blank():
         else:
             st.error(f"Incorrect! The correct word was '{current_word}'.")
         st.session_state.fib_idx += 1
-        st.experimental_rerun()
+        st.rerun()
 
 # ------------------- Streamlit Design -------------------
 st.set_page_config(page_title="Vocabuddy", layout="centered")
