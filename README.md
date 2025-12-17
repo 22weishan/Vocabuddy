@@ -65,7 +65,7 @@ The system automatically extracts text and builds a vocabulary list for gameplay
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/your-username/vocabuddy.git
+git clone https://github.com/wuyuechang11/Vocabuddy.git
 cd vocabuddy
 ```
 
