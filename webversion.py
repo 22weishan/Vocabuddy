@@ -265,6 +265,63 @@ def play_matching_game():
         # end game
         st.session_state.game_started = False
 
+def sentence_builder_game():
+    st.subheader("🧩 Sentence Builder")
+
+    st.write("Build a correct sentence using the target word.")
+
+    # 题库（你可以随时扩展）
+    questions = [
+        {
+            "word": "analyze",
+            "subject": ["The student", "The teacher", "The researcher"],
+            "adverb": ["carefully", "quickly", "randomly"],
+            "verb": "analyzed",
+            "object": ["the data", "the homework", "the experiment"],
+            "correct": [
+                ("The student", "carefully", "the data"),
+                ("The researcher", "carefully", "the experiment")
+            ]
+        },
+        {
+            "word": "conduct",
+            "subject": ["The class", "The researcher", "The child"],
+            "adverb": ["successfully", "angrily", "happily"],
+            "verb": "conducted",
+            "object": ["a survey", "a study", "a sandwich"],
+            "correct": [
+                ("The researcher", "successfully", "a study"),
+                ("The class", "successfully", "a survey")
+            ]
+        }
+    ]
+
+    q = questions[0]  # 你也可以之后加 random.choice()
+
+    st.markdown(f"### Target word: **{q['word']}**")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        subject = st.selectbox("Subject", q["subject"])
+    with col2:
+        adverb = st.selectbox("Adverb", q["adverb"])
+    with col3:
+        obj = st.selectbox("Object", q["object"])
+
+    sentence = f"{subject} {q['verb']} {obj} {adverb}."
+
+    st.markdown("### Your sentence:")
+    st.info(sentence)
+
+    if st.button("Check Answer"):
+        if (subject, adverb, obj) in q["correct"]:
+            st.success("✅ Great job! This sentence uses the word correctly.")
+        else:
+            st.error("❌ This sentence is not appropriate in academic context.")
+            st.write("💡 Hint: Think about who usually conducts or analyzes things like studies or data.")
+
+
 # ------------------- Streamlit Design -------------------
 st.set_page_config(page_title="Vocabuddy", layout="centered")
 st.title("Hi, Welcome to Vocabuddy")
@@ -450,3 +507,7 @@ if st.session_state.game_started and st.session_state.game_mode == "Listen & Cho
         st.session_state.listen_index = 0
         st.session_state.listen_score = 0
         st.session_state.listen_answers = [""] * 10
+
+# ------------------- Matching Game -------------------
+if st.session_state.game_started and st.session_state.game_mode == "Sentence Builder":
+    play_sentence_builder_game()
