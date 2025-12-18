@@ -311,11 +311,11 @@ def get_example_sentence_mw(word):
                                 cleaned_sentence = clean_html_tags(raw_sentence)
                                 return cleaned_sentence
         # 如果没有找到例句，返回清理后的默认句子
-        return f"I like to {word} every day."
+        return f"DEFAULT SENTECT: I LIKE TO {word} EVRY DAY."
     except Exception as e:
         # 打印错误信息用于调试
         print(f"Error getting example sentence for {word}: {e}")
-        return f"I like to {word} every day."
+        return f"DEFAULT SENTECT: I LIKE TO {word} EVRY DAY."
 
 def create_blank_sentence(word, sentence):
     """Replace the target word with blanks in the sentence, handling variations"""
@@ -389,7 +389,7 @@ def play_fill_blank_game():
 
     st.info(
         'When no dictionary example is available, a default sentence will be used '
-        '(e.g. "I LIKE TO ___ EVERY DAY.").'
+        '("I LIKE TO ___ EVERY DAY.").'
     )
     
     if "user_words" not in st.session_state or len(st.session_state.user_words) != 10:
