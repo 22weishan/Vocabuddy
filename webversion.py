@@ -557,48 +557,44 @@ if st.session_state.user_words:
         st.warning("Please provide exactly 10 words to play (you can enter/upload more and then edit).")
 
 # ------------------- choose game mode -------------------
-if st.session_state.user_words and len(st.session_state.user_words) == 10:
-    st.markdown("### 2. Choose a game and start")
-    st.session_state.game_mode = st.selectbox(
-        "Choose game mode",
-        ["Scrambled Letters Game", "Matching Game", "Listen & Choose", "Fill-in-the-Blank Game"],
-        index=0
-    )
-
-    # Start Game button: also reset per-game session flags
-    if st.button("Start Game"):
-        st.session_state.game_started = True
-        original_words = st.session_state.user_words.copy()
+# 在 "Start Game" 按钮中添加听音游戏的状态重置：
+if st.button("Start Game"):
+    st.session_state.game_started = True
+    original_words = st.session_state.user_words.copy()
     
     # 为各个游戏创建单词列表副本
-        st.session_state.scramble_words = original_words.copy()
-        random.shuffle(st.session_state.scramble_words)
-        st.session_state.matching_words = original_words.copy()
-        st.session_state.listen_words = original_words.copy()
-        st.session_state.fill_blank_words = original_words.copy()
+    st.session_state.scramble_words = original_words.copy()
+    random.shuffle(st.session_state.scramble_words)
+    
+    st.session_state.matching_words = original_words.copy()
+    st.session_state.listen_words = original_words.copy()  # 听音游戏使用原始顺序
+    st.session_state.fill_blank_words = original_words.copy()
     
     # reset Scramble Game
-        st.session_state.scramble_index = 0
-        st.session_state.scramble_score = 0
-        st.session_state.scramble_answers = [""] * 10
-        st.session_state.scramble_scrambled = [""] * 10
+    st.session_state.scramble_index = 0
+    st.session_state.scramble_score = 0
+    st.session_state.scramble_answers = [""] * 10
+    st.session_state.scramble_scrambled = [""] * 10
     
     # reset Matching Game
-        st.session_state.matching_answers = {}
-        st.session_state.matching_score = 0
-        st.session_state.matching_words_generated = False
+    st.session_state.matching_answers = {}
+    st.session_state.matching_score = 0
+    st.session_state.matching_words_generated = False
     
-    # ⭐️ 需要添加 Listen & Choose 游戏的重置 ⭐️
-        st.session_state.listen_index = 0           # 重置题目索引
-        st.session_state.listen_score = 0           # 重置得分
-        st.session_state.listen_answers = [""] * 10  # 重置答案列表
-        st.session_state.listen_options = []        # 重置选项列表
+    # ⭐️ 新增：reset Listen & Choose Game ⭐️
+    st.session_state.Listen_index = 0
+    st.session_state.Listen_score = 0
+    st.session_state.Listen_answers = [""] * 10
+    st.session_state.Listen_played_words = []  # 清空播放顺序
+    st.session_state.Listen_options_list = []  # 清空选项列表
+    st.session_state.waiting_for_next = False  # 新增状态
     
-    # ⭐️ 需要添加 Fill-in-the-Blank 游戏的重置 ⭐️
-        st.session_state.fill_index = 0             # 重置题目索引
-        st.session_state.fill_score = 0             # 重置得分
-        st.session_state.fill_answers = [""] * 10    # 重置答案列表
-        st.session_state.fill_sentences = []        # 重置句子列表
+    # reset Fill-in-the-Blank Game
+    st.session_state.fill_index = 0
+    st.session_state.fill_score = 0
+    st.session_state.fill_answers = [""] * 10
+    st.session_state.fill_sentences = []
+    st.session_state.fill_blanks = []
     
 # ------------------- Scrambled Game -------------------
 if st.session_state.game_started and st.session_state.game_mode == "Scrambled Letters Game":
@@ -647,59 +643,172 @@ if st.session_state.game_started and st.session_state.game_mode == "Scrambled Le
 if st.session_state.game_started and st.session_state.game_mode == "Matching Game":
     play_matching_game()
 
-# ------------------- Listen & Choose -------------------
+# ______ Listen & Choose (改进版) ______
 if st.session_state.game_started and st.session_state.game_mode == "Listen & Choose":
-    st.subheader("Listen & Choose Game")
-
-    if "listen_index" not in st.session_state:
-        st.session_state.listen_index = 0
-    if "listen_score" not in st.session_state:
-        st.session_state.listen_score = 0
-    if "listen_answers" not in st.session_state:
-        st.session_state.listen_answers = [""] * 10
-
-    idx = st.session_state.listen_index
-    user_words = st.session_state.user_words
-
+    st.subheader("🎧 Listen & Choose Game")
+    
+    # 初始化游戏状态
+    if "Listen_index" not in st.session_state:
+        st.session_state.Listen_index = 0
+        st.session_state.Listen_score = 0
+        st.session_state.Listen_answers = [""] * 10
+        st.session_state.Listen_played_words = []  # 存储已播放的单词（顺序打乱）
+        st.session_state.Listen_options_list = []  # 存储每道题的选项列表
+    
+    # 获取当前索引和单词列表
+    idx = st.session_state.Listen_index
+    user_words = st.session_state.listen_words  # 使用专门为听音游戏准备的单词列表
+    
+    # 如果是第一题，初始化打乱的播放顺序和选项
+    if idx == 0 and len(st.session_state.Listen_played_words) == 0:
+        # 1. 创建打乱的播放顺序
+        shuffled_words = user_words.copy()
+        random.shuffle(shuffled_words)
+        st.session_state.Listen_played_words = shuffled_words
+        
+        # 2. 为每道题生成选项（包含正确答案和干扰项）
+        st.session_state.Listen_options_list = []
+        for i, correct_word in enumerate(shuffled_words):
+            # 创建选项列表：正确答案 + 3个随机干扰项
+            options = [correct_word]
+            # 从所有单词中随机选择3个不同的单词作为干扰项
+            all_words_copy = user_words.copy()
+            all_words_copy.remove(correct_word)  # 移除正确答案
+            
+            if len(all_words_copy) >= 3:
+                distractors = random.sample(all_words_copy, 3)
+            else:
+                distractors = all_words_copy  # 如果单词不够，使用剩余的所有单词
+            
+            options.extend(distractors)
+            random.shuffle(options)  # 打乱选项顺序
+            st.session_state.Listen_options_list.append(options)
+    
+    # 检查游戏是否结束
     if idx < len(user_words):
-        current_word = user_words[idx]
-        audio_file = generate_tts_audio(current_word)
-
-        st.audio(audio_file, format="audio/mp3")
-        st.info(f"Word {idx + 1} of {len(user_words)}")
-
+        # 获取当前题目信息
+        current_audio_word = st.session_state.Listen_played_words[idx]  # 音频播放的单词（可能打乱顺序）
+        correct_word = current_audio_word  # 正确答案就是播放的单词
+        current_options = st.session_state.Listen_options_list[idx]  # 当前题的选项
+        
+        st.info(f"🎵 Word {idx + 1} of {len(user_words)}")
+        
+        # 生成并播放音频
+        audio_file = generate_tts_audio(current_audio_word)
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.audio(audio_file, format="audio/mp3")
+        with col2:
+            if st.button("🔁 Replay Audio", key=f"replay_{idx}"):
+                st.rerun()  # 重新播放
+        
+        # 显示选项（使用单选按钮）
         user_choice = st.radio(
             "Which word did you hear?",
-            options=user_words,
-            key=f"listen_choice_{idx}"
+            options=current_options,
+            key=f"Listen_choice_{idx}",
+            index=None  # 默认不选中任何选项
         )
-
-        if st.button("Submit", key=f"listen_submit_{idx}"):
-            st.session_state.listen_answers[idx] = user_choice
-            if user_choice == current_word:
-                st.session_state.listen_score += 1
-                st.success("Correct! 🎉")
-            else:
-                st.error(f"Wrong. The correct answer was **{current_word}**.")
-            st.session_state.listen_index += 1
-            
-
+        
+        # 提交当前答案的按钮
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("✅ Submit Answer", key=f"Listen_submit_{idx}", disabled=user_choice is None):
+                # 保存答案
+                st.session_state.Listen_answers[idx] = user_choice
+                
+                # 检查答案
+                if user_choice == correct_word:
+                    st.session_state.Listen_score += 1
+                    st.success(f"✅ Correct! '{correct_word}' is right!")
+                else:
+                    st.error(f"❌ Wrong. The correct answer was **{correct_word}**.")
+                
+                # 显示下一题按钮（等待用户点击）
+                st.session_state.waiting_for_next = True
+        
+        # 如果等待下一题，显示Next按钮
+        if st.session_state.get("waiting_for_next", False):
+            with col2:
+                if st.button("➡️ Next Word", key=f"next_{idx}"):
+                    st.session_state.Listen_index += 1
+                    st.session_state.waiting_for_next = False
+                    st.rerun()
     else:
-        st.success(f"Game finished! Your score: {st.session_state.listen_score}/{len(user_words)}")
-        df = pd.DataFrame({
-            "Word": user_words,
-            "Your Answer": st.session_state.listen_answers,
-            "Correct?": [
-                ua == w for ua, w in zip(st.session_state.listen_answers, user_words)
-            ]
-        })
-        st.subheader("Your results")
-        st.table(df)
-
-        st.session_state.game_started = False
-        st.session_state.listen_index = 0
-        st.session_state.listen_score = 0
-        st.session_state.listen_answers = [""] * 10
+        # 游戏结束：显示结果
+        st.success(f"🎮 Game Finished! Your score: **{st.session_state.Listen_score}/{len(user_words)}**")
+        
+        # 创建结果表格
+        df_data = []
+        for i in range(len(user_words)):
+            audio_word = st.session_state.Listen_played_words[i]
+            user_answer = st.session_state.Listen_answers[i]
+            is_correct = user_answer == audio_word
+            
+            df_data.append({
+                "Audio Word": audio_word,
+                "Your Choice": user_answer,
+                "Correct?": "✅" if is_correct else "❌"
+            })
+        
+        df = pd.DataFrame(df_data)
+        
+        # 添加样式到表格
+        st.subheader("📊 Your Results")
+        
+        # 使用st.dataframe以获得更好的控制
+        st.dataframe(
+            df,
+            column_config={
+                "Audio Word": "Heard Word",
+                "Your Choice": "Your Answer",
+                "Correct?": st.column_config.TextColumn(
+                    "Result",
+                    help="✅ = Correct, ❌ = Wrong"
+                )
+            },
+            hide_index=True,
+            use_container_width=True
+        )
+        
+        # 显示分数统计
+        correct_count = sum(1 for result in df_data if result["Correct?"] == "✅")
+        accuracy = (correct_count / len(user_words)) * 100
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Score", f"{st.session_state.Listen_score}/{len(user_words)}")
+        with col2:
+            st.metric("Accuracy", f"{accuracy:.1f}%")
+        with col3:
+            st.metric("Performance", "Excellent" if accuracy >= 80 else "Good" if accuracy >= 60 else "Need Practice")
+        
+        # 添加两个按钮
+        st.markdown("---")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("🔄 Play Again", use_container_width=True):
+                # 重置听音游戏状态
+                st.session_state.Listen_index = 0
+                st.session_state.Listen_score = 0
+                st.session_state.Listen_answers = [""] * 10
+                st.session_state.Listen_played_words = []  # 清空，下次会重新生成
+                st.session_state.Listen_options_list = []
+                st.session_state.waiting_for_next = False
+                st.rerun()
+        
+        with col2:
+            if st.button("🏠 Back to Main Menu", use_container_width=True):
+                # 重置所有游戏状态
+                st.session_state.game_started = False
+                st.session_state.Listen_index = 0
+                st.session_state.Listen_score = 0
+                st.session_state.Listen_answers = [""] * 10
+                st.session_state.Listen_played_words = []
+                st.session_state.Listen_options_list = []
+                st.session_state.waiting_for_next = False
+                st.rerun()
         
 # ------------------- Fill-in-the-Blank  -------------------
 if st.session_state.game_started and st.session_state.game_mode == "Fill-in-the-Blank Game":
