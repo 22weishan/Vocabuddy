@@ -391,31 +391,30 @@ def play_fill_blank_game():
         st.warning("Please provide exactly 10 words first.")
         return
 
-    user_words = st.session_state.user_words  # 原始顺序（唯一真相源）
+    # ⚠️ 注意：此处 user_words 可能会在别的游戏中被打乱
+    user_words = st.session_state.user_words
 
-    # ---------------- 初始化状态 ----------------
+    # ---------------- 初始化 ----------------
     if "fb_index" not in st.session_state:
         st.session_state.fb_index = 0
         st.session_state.fb_score = 0
 
-        # 关键：答案永远按【原始索引】存
-        st.session_state.fb_answers = [""] * 10
+        # 🔑 永久正确答案快照（不再受 shuffle 影响）
+        st.session_state.fb_correct_answers = user_words.copy()
 
+        # 答案也按【原始索引】存
+        st.session_state.fb_answers = [""] * 10
         st.session_state.fb_sentences = []
         st.session_state.fb_blanked = []
-
-        # 仅用于控制出题顺序
         st.session_state.fb_order = []
 
-        # 为每个单词生成例句与挖空句
-        for w in user_words:
+        for w in st.session_state.fb_correct_answers:
             sentence = get_example_sentence_mw(w)
             st.session_state.fb_sentences.append(sentence)
             st.session_state.fb_blanked.append(
                 create_blank_sentence(w, sentence)
             )
 
-        # 打乱“出题顺序”，但不打乱数据本身
         order = list(range(10))
         random.shuffle(order)
         st.session_state.fb_order = order
@@ -431,19 +430,18 @@ def play_fill_blank_game():
             "Original Sentence": st.session_state.fb_sentences,
             "Blanked Sentence": st.session_state.fb_blanked,
             "Your Answer": st.session_state.fb_answers,
-            "Correct Answer": user_words
+            "Correct Answer": st.session_state.fb_correct_answers
         })
 
         st.table(df)
 
-        # 重置游戏状态
         st.session_state.game_started = False
         return
 
     # ---------------- 当前题目 ----------------
     original_idx = st.session_state.fb_order[idx]
 
-    word = user_words[original_idx]
+    word = st.session_state.fb_correct_answers[original_idx]
     blanked = st.session_state.fb_blanked[original_idx]
 
     st.write(f"**Question {idx + 1}/10**")
@@ -454,12 +452,11 @@ def play_fill_blank_game():
 
     choice = st.radio(
         "Choose the correct word:",
-        options=user_words,
+        options=st.session_state.fb_correct_answers,
         key=f"fb_choice_{idx}"
     )
 
     if st.button("Submit", key=f"fb_submit_{idx}"):
-        # 🔑 核心修复：答案按原始索引存
         st.session_state.fb_answers[original_idx] = choice
 
         if choice.lower() == word.lower():
@@ -470,7 +467,6 @@ def play_fill_blank_game():
 
         st.session_state.fb_index += 1
         st.rerun()
-
 
 # ------------------- Streamlit Design -------------------
 st.set_page_config(page_title="Vocabuddy", layout="centered")
