@@ -400,12 +400,12 @@ def play_fill_blank_game():
 
     # ---------------- 初始化 ----------------
     should_reinit = False
-    
+
     if "fb_index" not in st.session_state:
         should_reinit = True
-    elif st.session_state.fb_index >= 10:
+    elif "fb_correct_answers" not in st.session_state:
         should_reinit = True
-    elif "fb_correct_answers" not in st.session_state or len(st.session_state.fb_correct_answers) != 10:
+    elif len(st.session_state.fb_correct_answers) != 10:
         should_reinit = True
     
     if should_reinit:
