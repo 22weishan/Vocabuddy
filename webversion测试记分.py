@@ -400,7 +400,20 @@ def play_fill_blank_game():
     user_words = st.session_state.user_words
 
     # ---------------- 初始化 ----------------
+    # 检查是否需要重新初始化（当游戏结束或第一次玩时）
+    should_reinit = False
+    
+    # 条件1：如果这是第一次玩这个游戏
     if "fb_index" not in st.session_state:
+        should_reinit = True
+    # 条件2：如果已经完成了一轮游戏（fb_index >= 10）
+    elif st.session_state.fb_index >= 10:
+        should_reinit = True
+    # 条件3：如果状态数据不完整
+    elif "fb_correct_answers" not in st.session_state or len(st.session_state.fb_correct_answers) != 10:
+        should_reinit = True
+    
+    if should_reinit:
         st.session_state.fb_index = 0
         st.session_state.fb_score = 0
 
@@ -430,48 +443,98 @@ def play_fill_blank_game():
     if idx >= 10:
         st.success(f"Game finished! Your score: {st.session_state.fb_score}/10")
 
-        df = pd.DataFrame({
-            "Original Sentence": st.session_state.fb_sentences,
-            "Blanked Sentence": st.session_state.fb_blanked,
-            "Your Answer": st.session_state.fb_answers,
-            "Correct Answer": st.session_state.fb_correct_answers
-        })
+        # 计算正确/错误的详细结果
+        results = []
+        for i in range(10):
+            original_idx = st.session_state.fb_order[i] if i < len(st.session_state.fb_order) else i
+            user_answer = st.session_state.fb_answers[original_idx] if original_idx < len(st.session_state.fb_answers) else ""
+            correct_answer = st.session_state.fb_correct_answers[original_idx] if original_idx < len(st.session_state.fb_correct_answers) else ""
+            
+            results.append({
+                "Question": i + 1,
+                "Original Sentence": st.session_state.fb_sentences[original_idx] if original_idx < len(st.session_state.fb_sentences) else "",
+                "Blanked Sentence": st.session_state.fb_blanked[original_idx] if original_idx < len(st.session_state.fb_blanked) else "",
+                "Your Answer": user_answer,
+                "Correct Answer": correct_answer,
+                "Correct": user_answer.lower() == correct_answer.lower() if user_answer and correct_answer else False
+            })
 
+        df = pd.DataFrame(results)
         st.table(df)
 
-        st.session_state.game_started = False
+        # 添加重新开始按钮
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Play Again"):
+                # 只重置游戏进度，不重置句子数据（可以重复使用）
+                st.session_state.fb_index = 0
+                st.session_state.fb_score = 0
+                st.session_state.fb_answers = [""] * 10
+                # 重新打乱顺序
+                order = list(range(10))
+                random.shuffle(order)
+                st.session_state.fb_order = order
+                st.rerun()
+        
+        with col2:
+            if st.button("Back to Main Menu"):
+                st.session_state.game_started = False
+                st.rerun()
+        
         return
 
     # ---------------- 当前题目 ----------------
-    original_idx = st.session_state.fb_order[idx]
+    if idx < len(st.session_state.fb_order):
+        original_idx = st.session_state.fb_order[idx]
+    else:
+        original_idx = idx  # 后备方案
 
-    word = st.session_state.fb_correct_answers[original_idx]
-    blanked = st.session_state.fb_blanked[original_idx]
+    if original_idx < len(st.session_state.fb_correct_answers):
+        word = st.session_state.fb_correct_answers[original_idx]
+    else:
+        st.error("Game data error. Please restart the game.")
+        return
+
+    if original_idx < len(st.session_state.fb_blanked):
+        blanked = st.session_state.fb_blanked[original_idx]
+    else:
+        blanked = "Error: No blanked sentence available"
 
     st.write(f"**Question {idx + 1}/10**")
     st.write(blanked)
 
     with st.expander("Show original sentence (for reference)"):
-        st.write(st.session_state.fb_sentences[original_idx])
+        if original_idx < len(st.session_state.fb_sentences):
+            st.write(st.session_state.fb_sentences[original_idx])
+        else:
+            st.write("Original sentence not available")
+
+    # 确保选项列表存在且正确
+    if "fb_correct_answers" in st.session_state and st.session_state.fb_correct_answers:
+        options = st.session_state.fb_correct_answers.copy()
+        # 可以打乱选项顺序
+        random.shuffle(options)
+    else:
+        options = user_words.copy()
 
     choice = st.radio(
         "Choose the correct word:",
-        options=st.session_state.fb_correct_answers,
+        options=options,
         key=f"fb_choice_{idx}"
     )
 
     if st.button("Submit", key=f"fb_submit_{idx}"):
-        st.session_state.fb_answers[original_idx] = choice
+        if original_idx < len(st.session_state.fb_answers):
+            st.session_state.fb_answers[original_idx] = choice
 
-        if choice.lower() == word.lower():
-            st.session_state.fb_score += 1
-            st.success("Correct!")
-        else:
-            st.error(f"Wrong. Correct answer: {word}")
+            if choice.lower() == word.lower():
+                st.session_state.fb_score += 1
+                st.success("Correct!")
+            else:
+                st.error(f"Wrong. Correct answer: {word}")
 
-        st.session_state.fb_index += 1
-        st.rerun()
-
+            st.session_state.fb_index += 1
+            st.rerun()
 # ------------------- Streamlit Design -------------------
 st.set_page_config(page_title="Vocabuddy", layout="centered")
 st.title("Hi, Welcome to Vocabuddy")
