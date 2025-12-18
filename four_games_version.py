@@ -305,161 +305,270 @@ def create_blank_sentence(word, sentence):
     return cleaned_sentence + f" (Fill in: _____)"
     
 def play_fill_blank_game():
-    st.subheader("Fill-in-the-Blank Game")
-
-    st.info(
-        'When no dictionary example is available, a default sentence will be used '
-        '("I LIKE TO ___ EVERY DAY.").'
-    )
-    
-    if "user_words" not in st.session_state or len(st.session_state.user_words) != 10:
-        st.warning("Please provide exactly 10 words first.")
-        return
-
-    user_words = st.session_state.user_words
-
-    # ---------------- 初始化 ----------------
-    should_reinit = False
-
-    if "fb_index" not in st.session_state:
-        should_reinit = True
-    elif "fb_correct_answers" not in st.session_state:
-        should_reinit = True
-    elif len(st.session_state.fb_correct_answers) != 10:
-        should_reinit = True
-    
-    if should_reinit:
-        st.session_state.fb_index = 0
-        st.session_state.fb_score = 0
-
-        # 永久正确答案快照
-        st.session_state.fb_correct_answers = user_words.copy()
-
-        # 初始化状态
-        st.session_state.fb_answers = [""] * 10
-        st.session_state.fb_sentences = []
-        st.session_state.fb_blanked = []
-        st.session_state.fb_order = []
-        st.session_state.fb_options = []  # 新增：保存每个问题的选项顺序
-
-        for w in st.session_state.fb_correct_answers:
-            sentence = get_example_sentence_mw(w)
-            st.session_state.fb_sentences.append(sentence)
-            st.session_state.fb_blanked.append(
-                create_blank_sentence(w, sentence)
-            )
-
-        # 创建随机播放顺序
-        order = list(range(10))
-        random.shuffle(order)
-        st.session_state.fb_order = order
+    # ______ Fill-in-the-Blank Game (改进版) ______
+    if st.session_state.game_started and st.session_state.game_mode == "Fill-in-the-Blank Game":
+        st.subheader("📝 Fill-in-the-Blank Game")
         
-        # 为每个问题创建固定的选项顺序
-        st.session_state.fb_options = []
-        for i in range(10):
-            options = st.session_state.fb_correct_answers.copy()
-            random.shuffle(options)
-            st.session_state.fb_options.append(options)
-
-    idx = st.session_state.fb_index
-
-    # ---------------- 游戏结束 ----------------
-    if idx >= 10:
-        st.success(f"Game finished! Your score: {st.session_state.fb_score}/10")
-
-        results = []
-        for i in range(10):
-            original_idx = st.session_state.fb_order[i] if i < len(st.session_state.fb_order) else i
-            user_answer = st.session_state.fb_answers[original_idx] if original_idx < len(st.session_state.fb_answers) else ""
-            correct_answer = st.session_state.fb_correct_answers[original_idx] if original_idx < len(st.session_state.fb_correct_answers) else ""
+        # 初始化游戏状态
+        if "fb_index" not in st.session_state:
+            st.session_state.fb_index = 0
+            st.session_state.fb_score = 0
+            st.session_state.fb_answers = [""] * 10
+            st.session_state.fb_correct_answers = []
+            st.session_state.fb_blanked_sentences = []
+            st.session_state.fb_original_sentences = []
+            st.session_state.fb_played_order = []  # 存储打乱的问题顺序
+            st.session_state.fb_waiting_for_next = False
+        
+        # 获取当前索引和单词列表
+        idx = st.session_state.fb_index
+        user_words = st.session_state.fill_blank_words  # 使用专门为填空游戏准备的单词列表
+        
+        # 如果是第一题，初始化游戏数据
+        if idx == 0 and len(st.session_state.fb_correct_answers) == 0:
+            # 1. 存储正确答案（原始单词列表）
+            st.session_state.fb_correct_answers = user_words.copy()
             
-            results.append({
-                "Original Sentence": st.session_state.fb_sentences[original_idx] if original_idx < len(st.session_state.fb_sentences) else "",
-                "Blanked Sentence": st.session_state.fb_blanked[original_idx] if original_idx < len(st.session_state.fb_blanked) else "",
-                "Your Answer": user_answer,
-                "Correct Answer": correct_answer,
-            })
-
-        df = pd.DataFrame(results)
-        st.table(df)
-
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Play Again"):
-                # 重置游戏进度
-                st.session_state.fb_index = 0
-                st.session_state.fb_score = 0
-                st.session_state.fb_answers = [""] * 10
-                # 重新打乱播放顺序
-                order = list(range(10))
-                random.shuffle(order)
-                st.session_state.fb_order = order
-                # 重新生成选项顺序
-                st.session_state.fb_options = []
-                for i in range(10):
-                    options = st.session_state.fb_correct_answers.copy()
-                    random.shuffle(options)
-                    st.session_state.fb_options.append(options)
-                st.rerun()
+            # 2. 为每个单词获取例句并创建填空句子
+            st.session_state.fb_blanked_sentences = []
+            st.session_state.fb_original_sentences = []
+            
+            st.info("⏳ Generating example sentences...")
+            progress_bar = st.progress(0)
+            
+            for i, word in enumerate(user_words):
+                # 获取例句
+                sentence = get_example_sentence_mw(word)
+                st.session_state.fb_original_sentences.append(sentence)
+                
+                # 创建填空句子
+                blanked_sentence = create_blank_sentence(word, sentence)
+                st.session_state.fb_blanked_sentences.append(blanked_sentence)
+                
+                # 更新进度条
+                progress_bar.progress((i + 1) / len(user_words))
+            
+            progress_bar.empty()
+            
+            # 3. 创建打乱的问题顺序
+            shuffled_order = list(range(len(user_words)))
+            random.shuffle(shuffled_order)
+            st.session_state.fb_played_order = shuffled_order
         
-        with col2:
-            if st.button("Back to Main Menu"):
-                st.session_state.game_started = False
-                st.rerun()
-        
-        return
-
-    # ---------------- 当前题目 ----------------
-    if idx < len(st.session_state.fb_order):
-        original_idx = st.session_state.fb_order[idx]
-    else:
-        original_idx = idx
-
-    if original_idx < len(st.session_state.fb_correct_answers):
-        word = st.session_state.fb_correct_answers[original_idx]
-    else:
-        st.error("Game data error. Please restart the game.")
-        return
-
-    if original_idx < len(st.session_state.fb_blanked):
-        blanked = st.session_state.fb_blanked[original_idx]
-    else:
-        blanked = "Error: No blanked sentence available"
-
-    st.write(f"**Question {idx + 1}/10**")
-    st.write(blanked)
-
-    with st.expander("Show original sentence (for reference)"):
-        if original_idx < len(st.session_state.fb_sentences):
-            st.write(st.session_state.fb_sentences[original_idx])
+        # 检查游戏是否结束
+        if idx < len(user_words):
+            # 获取当前题目信息
+            current_order = st.session_state.fb_played_order[idx]  # 当前问题的索引（打乱顺序）
+            current_sentence = st.session_state.fb_blanked_sentences[current_order]
+            correct_word = st.session_state.fb_correct_answers[current_order]
+            original_sentence = st.session_state.fb_original_sentences[current_order]
+            
+            st.info(f"📝 Question {idx + 1} of {len(user_words)}")
+            
+            # 显示填空句子
+            st.markdown(f"### {current_sentence}")
+            
+            # 显示所有10个单词作为选项（保持原始顺序）
+            st.write("**Select the correct word to fill in the blank:**")
+            
+            # 创建两列布局显示10个选项
+            cols = st.columns(2)  # 创建两列
+            
+            # 将10个单词分配到两列
+            user_choice = None
+            for i, word in enumerate(user_words):
+                col_idx = i % 2  # 0表示第一列，1表示第二列
+                with cols[col_idx]:
+                    # 使用button风格的选择
+                    is_selected = st.session_state.get(f"fb_selected_{idx}") == word
+                    button_type = "primary" if is_selected else "secondary"
+                    
+                    if st.button(
+                        word,
+                        key=f"fb_word_btn_{idx}_{i}",
+                        use_container_width=True,
+                        type=button_type
+                    ):
+                        # 记录用户选择
+                        st.session_state[f"fb_selected_{idx}"] = word
+                        st.rerun()
+            
+            # 显示当前选择的单词（如果有）
+            if st.session_state.get(f"fb_selected_{idx}"):
+                st.markdown(f"**Your current selection:** `{st.session_state[f'fb_selected_{idx}']}`")
+            
+            # 提交当前答案的按钮
+            col1, col2 = st.columns(2)
+            
+            # 如果没有选择，禁用Submit按钮
+            submit_disabled = st.session_state.get(f"fb_selected_{idx}") is None
+            
+            with col1:
+                if st.button("✅ Submit Answer", 
+                            key=f"fb_submit_{idx}", 
+                            disabled=submit_disabled,
+                            use_container_width=True):
+                    # 获取用户选择
+                    user_choice = st.session_state.get(f"fb_selected_{idx}", "")
+                    
+                    # 保存答案
+                    st.session_state.fb_answers[current_order] = user_choice
+                    
+                    # 显示原始句子（展开状态）
+                    with st.expander("📖 Show original sentence"):
+                        st.write(f"**Original sentence:** {original_sentence}")
+                    
+                    # 检查答案
+                    if user_choice.lower() == correct_word.lower():
+                        st.session_state.fb_score += 1
+                        st.success(f"✅ Correct! **'{correct_word}'** fits perfectly!")
+                    else:
+                        st.error(f"❌ Wrong. You selected **'{user_choice}'**. The correct answer was **'{correct_word}'**.")
+                    
+                    # 清除当前选择
+                    if f"fb_selected_{idx}" in st.session_state:
+                        del st.session_state[f"fb_selected_{idx}"]
+                    
+                    # 显示下一题按钮（等待用户点击）
+                    st.session_state.fb_waiting_for_next = True
+            
+            # 如果等待下一题，显示Next按钮
+            if st.session_state.get("fb_waiting_for_next", False):
+                with col2:
+                    if st.button("➡️ Next Question", 
+                                key=f"fb_next_{idx}", 
+                                use_container_width=True):
+                        st.session_state.fb_index += 1
+                        st.session_state.fb_waiting_for_next = False
+                        st.rerun()
         else:
-            st.write("Original sentence not available")
-
-    # 使用预先保存的选项顺序，而不是每次都重新洗牌
-    if idx < len(st.session_state.fb_options):
-        options = st.session_state.fb_options[idx]
-    else:
-        # 后备方案：使用原始单词列表
-        options = st.session_state.fb_correct_answers.copy()
-
-    choice = st.radio(
-        "Choose the correct word:",
-        options=options,
-        key=f"fb_choice_{idx}"  # key包含idx，确保每个问题有独立的widget
-    )
-
-    if st.button("Submit", key=f"fb_submit_{idx}"):
-        if original_idx < len(st.session_state.fb_answers):
-            st.session_state.fb_answers[original_idx] = choice
-
-            if choice.lower() == word.lower():
-                st.session_state.fb_score += 1
-                st.success("Correct!")
-            else:
-                st.error(f"Wrong. Correct answer: {word}")
-
-            st.session_state.fb_index += 1
-            st.rerun()
+            # 游戏结束：显示结果
+            st.balloons()  # 庆祝动画
+            st.success(f"🎮 Game Finished! Your score: **{st.session_state.fb_score}/{len(user_words)}**")
+            
+            # 创建结果表格
+            df_data = []
+            for i in range(len(user_words)):
+                original_idx = st.session_state.fb_played_order[i]
+                blanked_sentence = st.session_state.fb_blanked_sentences[original_idx]
+                user_answer = st.session_state.fb_answers[original_idx]
+                correct_answer = st.session_state.fb_correct_answers[original_idx]
+                original_sentence = st.session_state.fb_original_sentences[original_idx]
+                is_correct = user_answer.lower() == correct_answer.lower() if user_answer else False
+                
+                df_data.append({
+                    "Blanked Sentence": blanked_sentence,
+                    "Original Sentence": original_sentence,
+                    "Your Answer": user_answer if user_answer else "(No answer)",
+                    "Correct Answer": correct_answer,
+                    "Result": "✅" if is_correct else "❌"
+                })
+            
+            df = pd.DataFrame(df_data)
+            
+            # 添加样式到表格
+            st.subheader("📊 Your Results")
+            
+            # 使用st.dataframe以获得更好的控制
+            st.dataframe(
+                df,
+                column_config={
+                    "Blanked Sentence": st.column_config.TextColumn(
+                        "Fill-in Sentence",
+                        width="large"
+                    ),
+                    "Original Sentence": st.column_config.TextColumn(
+                        "Original Sentence",
+                        width="large"
+                    ),
+                    "Your Answer": "Your Choice",
+                    "Correct Answer": "Correct Word",
+                    "Result": st.column_config.TextColumn(
+                        "Result",
+                        help="✅ = Correct, ❌ = Wrong"
+                    )
+                },
+                hide_index=True,
+                use_container_width=True
+            )
+            
+            # 显示分数统计
+            correct_count = sum(1 for result in df_data if result["Result"] == "✅")
+            accuracy = (correct_count / len(user_words)) * 100
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Score", f"{st.session_state.fb_score}/{len(user_words)}")
+            with col2:
+                st.metric("Accuracy", f"{accuracy:.1f}%")
+            with col3:
+                if accuracy >= 80:
+                    performance = "🏆 Excellent"
+                elif accuracy >= 60:
+                    performance = "👍 Good"
+                else:
+                    performance = "📚 Needs Practice"
+                st.metric("Performance", performance)
+            
+            # 添加两个按钮
+            st.markdown("---")
+            st.write("### What would you like to do next?")
+            col1, col2, col3 = st.columns([1, 1, 1])
+            
+            with col1:
+                if st.button("🔄 Play Again", 
+                            use_container_width=True,
+                            help="Play the same game again with new random order"):
+                    # 重置填空游戏状态
+                    st.session_state.fb_index = 0
+                    st.session_state.fb_score = 0
+                    st.session_state.fb_answers = [""] * 10
+                    st.session_state.fb_played_order = []  # 清空，下次会重新生成
+                    st.session_state.fb_waiting_for_next = False
+                    # 清除所有选择状态
+                    for key in list(st.session_state.keys()):
+                        if key.startswith("fb_selected_"):
+                            del st.session_state[key]
+                    st.rerun()
+            
+            with col2:
+                if st.button("🎮 Try Another Game", 
+                            use_container_width=True,
+                            help="Go back to choose a different game mode"):
+                    # 返回游戏选择界面
+                    st.session_state.game_started = False
+                    # 只重置填空游戏特定状态
+                    st.session_state.fb_index = 0
+                    st.session_state.fb_score = 0
+                    st.session_state.fb_answers = [""] * 10
+                    st.session_state.fb_played_order = []
+                    st.session_state.fb_waiting_for_next = False
+                    # 清除所有选择状态
+                    for key in list(st.session_state.keys()):
+                        if key.startswith("fb_selected_"):
+                            del st.session_state[key]
+                    st.rerun()
+            
+            with col3:
+                if st.button("🏠 Main Menu", 
+                            use_container_width=True,
+                            help="Return to the main menu"):
+                    # 完全重置所有状态
+                    st.session_state.game_started = False
+                    st.session_state.game_mode = None
+                    # 清除所有填空游戏状态
+                    for key in ["fb_index", "fb_score", "fb_answers", 
+                               "fb_correct_answers", "fb_blanked_sentences",
+                               "fb_original_sentences", "fb_played_order", 
+                               "fb_waiting_for_next"]:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                    # 清除所有选择状态
+                    for key in list(st.session_state.keys()):
+                        if key.startswith("fb_selected_"):
+                            del st.session_state[key]
+                    st.rerun()
+                                
             
 # ------------------- Streamlit Design -------------------
 st.set_page_config(page_title="Vocabuddy", layout="centered")
@@ -519,49 +628,53 @@ if st.session_state.user_words:
         st.warning("Please provide exactly 10 words to play (you can enter/upload more and then edit).")
 
 # ------------------- choose game mode -------------------
-if st.session_state.user_words and len(st.session_state.user_words) == 10:
-    st.markdown("### 2. Choose a game and start")
-    st.session_state.game_mode = st.selectbox(
-        "Choose game mode",
-        ["Scrambled Letters Game", "Matching Game", "Listen & Choose", "Fill-in-the-Blank Game"],
-        index=0
-    )
-
-    # Start Game button: also reset per-game session flags
-    if st.button("Start Game"):
-        st.session_state.game_started = True
-        original_words = st.session_state.user_words.copy()
+# 在 "Start Game" 按钮中添加填空游戏的状态重置：
+if st.button("Start Game"):
+    st.session_state.game_started = True
+    original_words = st.session_state.user_words.copy()
     
     # 为各个游戏创建单词列表副本
-        st.session_state.scramble_words = original_words.copy()
-        random.shuffle(st.session_state.scramble_words)
-        st.session_state.matching_words = original_words.copy()
-        st.session_state.listen_words = original_words.copy()
-        st.session_state.fill_blank_words = original_words.copy()
+    st.session_state.scramble_words = original_words.copy()
+    random.shuffle(st.session_state.scramble_words)
+    
+    st.session_state.matching_words = original_words.copy()
+    st.session_state.listen_words = original_words.copy()
+    st.session_state.fill_blank_words = original_words.copy()  # 填空游戏使用原始顺序
     
     # reset Scramble Game
-        st.session_state.scramble_index = 0
-        st.session_state.scramble_score = 0
-        st.session_state.scramble_answers = [""] * 10
-        st.session_state.scramble_scrambled = [""] * 10
+    st.session_state.scramble_index = 0
+    st.session_state.scramble_score = 0
+    st.session_state.scramble_answers = [""] * 10
+    st.session_state.scramble_scrambled = [""] * 10
     
     # reset Matching Game
-        st.session_state.matching_answers = {}
-        st.session_state.matching_score = 0
-        st.session_state.matching_words_generated = False
+    st.session_state.matching_answers = {}
+    st.session_state.matching_score = 0
+    st.session_state.matching_words_generated = False
     
-    # ⭐️ 需要添加 Listen & Choose 游戏的重置 ⭐️
-        st.session_state.listen_index = 0           # 重置题目索引
-        st.session_state.listen_score = 0           # 重置得分
-        st.session_state.listen_answers = [""] * 10  # 重置答案列表
-        st.session_state.listen_options = []        # 重置选项列表
+    # reset Listen & Choose Game
+    st.session_state.Listen_index = 0
+    st.session_state.Listen_score = 0
+    st.session_state.Listen_answers = [""] * 10
+    st.session_state.Listen_played_words = []
+    st.session_state.Listen_options_list = []
+    st.session_state.waiting_for_next = False
     
-    # ⭐️ 需要添加 Fill-in-the-Blank 游戏的重置 ⭐️
-        st.session_state.fill_index = 0             # 重置题目索引
-        st.session_state.fill_score = 0             # 重置得分
-        st.session_state.fill_answers = [""] * 10    # 重置答案列表
-        st.session_state.fill_sentences = []        # 重置句子列表
-
+    # ⭐️ 新增：reset Fill-in-the-Blank Game ⭐️
+    st.session_state.fb_index = 0
+    st.session_state.fb_score = 0
+    st.session_state.fb_answers = [""] * 10
+    st.session_state.fb_correct_answers = []
+    st.session_state.fb_blanked_sentences = []
+    st.session_state.fb_original_sentences = []
+    st.session_state.fb_played_order = []
+    st.session_state.fb_waiting_for_next = False
+    
+    # 清除所有选择状态
+    for key in list(st.session_state.keys()):
+        if key.startswith("fb_selected_") or key.startswith("selected_"):
+            del st.session_state[key]
+            
 # ------------------- Scrambled Game -------------------
 if st.session_state.game_started and st.session_state.game_mode == "Scrambled Letters Game":
     st.subheader("Spell the word in correct order")
