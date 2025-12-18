@@ -374,22 +374,22 @@ def play_fill_blank_game():
     idx = st.session_state.fb_index
 
     # 结束条件
-    if idx >= len(user_words):
-        st.success(f"Game finished! Your score: {st.session_state.fb_score}/10")
+    if idx >= len(st.session_state.fb_sentences):
+    st.success(f"Game finished! Your score: {st.session_state.fb_score}/10")
 
-        df = pd.DataFrame({
-            "Word": user_words,
-            "Sentence": st.session_state.fb_sentences,
-            "Your Answer": st.session_state.fb_answers,
-            "Correct?": [
-                st.session_state.fb_answers[i] == user_words[i]
-                for i in range(10)
-            ]
-        })
-        st.table(df)
+    df = pd.DataFrame({
+        "Word": st.session_state.user_words,
+        "Sentence": st.session_state.fb_sentences,
+        "Your Answer": st.session_state.fb_answers,
+        "Correct?": [
+            st.session_state.fb_answers[i] == st.session_state.user_words[i]
+            for i in range(len(st.session_state.user_words))
+        ]
+    })
+    st.table(df)
 
-        st.session_state.game_started = False
-        return
+    st.session_state.game_started = False
+    return
 
     # 当前题目
     word = user_words[idx]
