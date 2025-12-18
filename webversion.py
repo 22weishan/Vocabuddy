@@ -566,39 +566,39 @@ if st.session_state.user_words and len(st.session_state.user_words) == 10:
     )
 
     # Start Game button: also reset per-game session flags
-     if st.button("Start Game"):
-    st.session_state.game_started = True
-    original_words = st.session_state.user_words.copy()
+    if st.button("Start Game"):
+        st.session_state.game_started = True
+        original_words = st.session_state.user_words.copy()
     
     # 为各个游戏创建单词列表副本
-    st.session_state.scramble_words = original_words.copy()
-    random.shuffle(st.session_state.scramble_words)
-    st.session_state.matching_words = original_words.copy()
-    st.session_state.listen_words = original_words.copy()
-    st.session_state.fill_blank_words = original_words.copy()
+        st.session_state.scramble_words = original_words.copy()
+        random.shuffle(st.session_state.scramble_words)
+        st.session_state.matching_words = original_words.copy()
+        st.session_state.listen_words = original_words.copy()
+        st.session_state.fill_blank_words = original_words.copy()
     
     # reset Scramble Game
-    st.session_state.scramble_index = 0
-    st.session_state.scramble_score = 0
-    st.session_state.scramble_answers = [""] * 10
-    st.session_state.scramble_scrambled = [""] * 10
+        st.session_state.scramble_index = 0
+        st.session_state.scramble_score = 0
+        st.session_state.scramble_answers = [""] * 10
+        st.session_state.scramble_scrambled = [""] * 10
     
     # reset Matching Game
-    st.session_state.matching_answers = {}
-    st.session_state.matching_score = 0
-    st.session_state.matching_words_generated = False
+        st.session_state.matching_answers = {}
+        st.session_state.matching_score = 0
+        st.session_state.matching_words_generated = False
     
     # ⭐️ 需要添加 Listen & Choose 游戏的重置 ⭐️
-    st.session_state.listen_index = 0           # 重置题目索引
-    st.session_state.listen_score = 0           # 重置得分
-    st.session_state.listen_answers = [""] * 10  # 重置答案列表
-    st.session_state.listen_options = []        # 重置选项列表
+        st.session_state.listen_index = 0           # 重置题目索引
+        st.session_state.listen_score = 0           # 重置得分
+        st.session_state.listen_answers = [""] * 10  # 重置答案列表
+        st.session_state.listen_options = []        # 重置选项列表
     
     # ⭐️ 需要添加 Fill-in-the-Blank 游戏的重置 ⭐️
-    st.session_state.fill_index = 0             # 重置题目索引
-    st.session_state.fill_score = 0             # 重置得分
-    st.session_state.fill_answers = [""] * 10    # 重置答案列表
-    st.session_state.fill_sentences = []        # 重置句子列表
+        st.session_state.fill_index = 0             # 重置题目索引
+        st.session_state.fill_score = 0             # 重置得分
+        st.session_state.fill_answers = [""] * 10    # 重置答案列表
+        st.session_state.fill_sentences = []        # 重置句子列表
     
 # ------------------- Scrambled Game -------------------
 if st.session_state.game_started and st.session_state.game_mode == "Scrambled Letters Game":
