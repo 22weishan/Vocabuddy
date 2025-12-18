@@ -294,6 +294,7 @@ def get_example_sentence_mw(word):
         r = requests.get(url)
         data = r.json()
         if not data or not isinstance(data[0], dict):
+            # 使用清理后的默认句子
             return f"I like to {word} every day."
         defs = data[0].get("def", [])
         for d in defs:
@@ -305,36 +306,20 @@ def get_example_sentence_mw(word):
                         if item[0] == "vis":  # example sentences
                             vis_list = item[1]
                             if vis_list:
-                                # 获取原始句子
                                 raw_sentence = vis_list[0]["t"]
-                                # 清理HTML标签：{wi}...{/wi} 或 {it}...{/it}
+                                # 清理HTML标签
                                 cleaned_sentence = clean_html_tags(raw_sentence)
                                 return cleaned_sentence
+        # 如果没有找到例句，返回清理后的默认句子
         return f"I like to {word} every day."
-    except:
+    except Exception as e:
+        # 打印错误信息用于调试
+        print(f"Error getting example sentence for {word}: {e}")
         return f"I like to {word} every day."
-
-def clean_html_tags(text):
-    """Clean HTML-like tags from Merriam-Webster API response"""
-    import re
-    # 移除 {wi}...{/wi} 标签，只保留内容
-    text = re.sub(r'\{/?wi\}', '', text)
-    # 移除 {it}...{/it} 标签
-    text = re.sub(r'\{/?it\}', '', text)
-    # 移除 {bc} 标签
-    text = re.sub(r'\{/?bc\}', '', text)
-    # 移除 {phrase}...{/phrase} 标签
-    text = re.sub(r'\{/?phrase\}', '', text)
-    # 移除其他可能的标签
-    text = re.sub(r'\{[^}]+?\}', '', text)
-    # 清理多余的空格
-    text = re.sub(r'\s+', ' ', text).strip()
-    return text
 
 def create_blank_sentence(word, sentence):
     """Replace the target word with blanks in the sentence"""
     import re
-
     
     # 确保句子已经清理过HTML标签
     cleaned_sentence = clean_html_tags(sentence)
