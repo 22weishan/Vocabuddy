@@ -309,12 +309,6 @@ def play_fill_blank_game():
     if st.session_state.game_started and st.session_state.game_mode == "Fill-in-the-Blank Game":
         st.subheader("📝 Fill-in-the-Blank Game")
 
-        st.info(
-        'When no dictionary example is available, a default sentence will be used '
-        '(e.g. "I LIKE TO ___ EVERY DAY.").'
-        )
-
-        
         # 初始化游戏状态
         if "fb_index" not in st.session_state:
             st.session_state.fb_index = 0
