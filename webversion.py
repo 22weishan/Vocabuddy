@@ -419,21 +419,44 @@ def play_fill_blank_game():
     if idx >= len(st.session_state.fb_sentences):
         st.success(f"Game finished! Your score: {st.session_state.fb_score}/10")
 
-        # 确保 fb_blanked 存在，如果不存在则重新生成
-        if "fb_blanked" not in st.session_state:
-            st.session_state.fb_blanked = []
-            for i, w in enumerate(user_words):
-                blanked = create_blank_sentence(w, st.session_state.fb_sentences[i])
-                st.session_state.fb_blanked.append(blanked)
+        # 确保所有数组长度一致
+        n = len(user_words)
+        
+        # 确保 fb_answers 长度正确
+        if len(st.session_state.fb_answers) < n:
+            st.session_state.fb_answers = st.session_state.fb_answers + [""] * (n - len(st.session_state.fb_answers))
+        elif len(st.session_state.fb_answers) > n:
+            st.session_state.fb_answers = st.session_state.fb_answers[:n]
+            
+        # 确保 fb_blanked 长度正确
+        if len(st.session_state.fb_blanked) < n:
+            # 补充缺失的空白句子
+            for i in range(len(st.session_state.fb_blanked), n):
+                if i < len(st.session_state.fb_sentences):
+                    blanked = create_blank_sentence(user_words[i], st.session_state.fb_sentences[i])
+                    st.session_state.fb_blanked.append(blanked)
+                else:
+                    st.session_state.fb_blanked.append(f"Fill in: _____")
+        elif len(st.session_state.fb_blanked) > n:
+            st.session_state.fb_blanked = st.session_state.fb_blanked[:n]
+            
+        # 确保 fb_sentences 长度正确
+        if len(st.session_state.fb_sentences) < n:
+            for i in range(len(st.session_state.fb_sentences), n):
+                st.session_state.fb_sentences.append(get_example_sentence_mw(user_words[i]))
+        elif len(st.session_state.fb_sentences) > n:
+            st.session_state.fb_sentences = st.session_state.fb_sentences[:n]
 
+        # 创建结果表格 - 确保所有数组长度一致
         df = pd.DataFrame({
-            "Word": user_words,
-            "Original Sentence": st.session_state.fb_sentences,
-            "Blanked Sentence": st.session_state.fb_blanked,  # 显示空白句子
-            "Your Answer": st.session_state.fb_answers,
+            "Word": user_words[:n],
+            "Original Sentence": st.session_state.fb_sentences[:n],
+            "Blanked Sentence": st.session_state.fb_blanked[:n],
+            "Your Answer": st.session_state.fb_answers[:n],
             "Correct?": [
-                st.session_state.fb_answers[i].lower() == user_words[i].lower()
-                for i in range(10)
+                (st.session_state.fb_answers[i].lower() == user_words[i].lower() 
+                 if i < len(st.session_state.fb_answers) else False)
+                for i in range(n)
             ]
         })
         st.table(df)
