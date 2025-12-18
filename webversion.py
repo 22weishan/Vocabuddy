@@ -297,13 +297,6 @@ def get_example_sentence_mw(word):
     except:
         return f"I like to {word} every day."
 
-def clean_mw_markup(text):
-    """
-    Remove Merriam-Webster markup like {wi}, {/wi}, {it}, etc.
-    """
-    if not text:
-        return text
-    return re.sub(r"\{[^}]+\}", "", text)
     
 def create_blank_sentence(word, sentence):
     """Replace the target word with blanks in the sentence"""
@@ -334,8 +327,7 @@ def play_fill_blank_game():
         
         # 为每个单词获取例句
         for word in user_words:
-            sentence = get_example_sentence_mw(word)
-            sentence = clean_mw_markup(sentence) 
+            sentence = get_example_sentence_mw(word) 
             st.session_state.fb_sentences.append(sentence)
         
         # 为每个问题生成固定选项顺序
