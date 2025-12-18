@@ -374,7 +374,7 @@ def play_fill_blank_game():
     idx = st.session_state.fb_index
 
     # 结束条件
-    if idx >= len(user_words):
+    if idx >= len(st.session_state.fb_sentences):
         st.success(f"Game finished! Your score: {st.session_state.fb_score}/10")
 
         df = pd.DataFrame({
