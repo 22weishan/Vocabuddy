@@ -396,20 +396,15 @@ def play_fill_blank_game():
         st.warning("Please provide exactly 10 words first.")
         return
 
-    # ⚠️ 注意：此处 user_words 可能会在别的游戏中被打乱
     user_words = st.session_state.user_words
 
     # ---------------- 初始化 ----------------
-    # 检查是否需要重新初始化（当游戏结束或第一次玩时）
     should_reinit = False
     
-    # 条件1：如果这是第一次玩这个游戏
     if "fb_index" not in st.session_state:
         should_reinit = True
-    # 条件2：如果已经完成了一轮游戏（fb_index >= 10）
     elif st.session_state.fb_index >= 10:
         should_reinit = True
-    # 条件3：如果状态数据不完整
     elif "fb_correct_answers" not in st.session_state or len(st.session_state.fb_correct_answers) != 10:
         should_reinit = True
     
@@ -417,14 +412,15 @@ def play_fill_blank_game():
         st.session_state.fb_index = 0
         st.session_state.fb_score = 0
 
-        # 🔑 永久正确答案快照（不再受 shuffle 影响）
+        # 永久正确答案快照
         st.session_state.fb_correct_answers = user_words.copy()
 
-        # 答案也按【原始索引】存
+        # 初始化状态
         st.session_state.fb_answers = [""] * 10
         st.session_state.fb_sentences = []
         st.session_state.fb_blanked = []
         st.session_state.fb_order = []
+        st.session_state.fb_options = []  # 新增：保存每个问题的选项顺序
 
         for w in st.session_state.fb_correct_answers:
             sentence = get_example_sentence_mw(w)
@@ -433,9 +429,17 @@ def play_fill_blank_game():
                 create_blank_sentence(w, sentence)
             )
 
+        # 创建随机播放顺序
         order = list(range(10))
         random.shuffle(order)
         st.session_state.fb_order = order
+        
+        # 为每个问题创建固定的选项顺序
+        st.session_state.fb_options = []
+        for i in range(10):
+            options = st.session_state.fb_correct_answers.copy()
+            random.shuffle(options)
+            st.session_state.fb_options.append(options)
 
     idx = st.session_state.fb_index
 
@@ -443,7 +447,6 @@ def play_fill_blank_game():
     if idx >= 10:
         st.success(f"Game finished! Your score: {st.session_state.fb_score}/10")
 
-        # 计算正确/错误的详细结果
         results = []
         for i in range(10):
             original_idx = st.session_state.fb_order[i] if i < len(st.session_state.fb_order) else i
@@ -462,18 +465,23 @@ def play_fill_blank_game():
         df = pd.DataFrame(results)
         st.table(df)
 
-        # 添加重新开始按钮
         col1, col2 = st.columns(2)
         with col1:
             if st.button("Play Again"):
-                # 只重置游戏进度，不重置句子数据（可以重复使用）
+                # 重置游戏进度
                 st.session_state.fb_index = 0
                 st.session_state.fb_score = 0
                 st.session_state.fb_answers = [""] * 10
-                # 重新打乱顺序
+                # 重新打乱播放顺序
                 order = list(range(10))
                 random.shuffle(order)
                 st.session_state.fb_order = order
+                # 重新生成选项顺序
+                st.session_state.fb_options = []
+                for i in range(10):
+                    options = st.session_state.fb_correct_answers.copy()
+                    random.shuffle(options)
+                    st.session_state.fb_options.append(options)
                 st.rerun()
         
         with col2:
@@ -487,7 +495,7 @@ def play_fill_blank_game():
     if idx < len(st.session_state.fb_order):
         original_idx = st.session_state.fb_order[idx]
     else:
-        original_idx = idx  # 后备方案
+        original_idx = idx
 
     if original_idx < len(st.session_state.fb_correct_answers):
         word = st.session_state.fb_correct_answers[original_idx]
@@ -509,18 +517,17 @@ def play_fill_blank_game():
         else:
             st.write("Original sentence not available")
 
-    # 确保选项列表存在且正确
-    if "fb_correct_answers" in st.session_state and st.session_state.fb_correct_answers:
-        options = st.session_state.fb_correct_answers.copy()
-        # 可以打乱选项顺序
-        random.shuffle(options)
+    # 使用预先保存的选项顺序，而不是每次都重新洗牌
+    if idx < len(st.session_state.fb_options):
+        options = st.session_state.fb_options[idx]
     else:
-        options = user_words.copy()
+        # 后备方案：使用原始单词列表
+        options = st.session_state.fb_correct_answers.copy()
 
     choice = st.radio(
         "Choose the correct word:",
         options=options,
-        key=f"fb_choice_{idx}"
+        key=f"fb_choice_{idx}"  # key包含idx，确保每个问题有独立的widget
     )
 
     if st.button("Submit", key=f"fb_submit_{idx}"):
@@ -535,6 +542,7 @@ def play_fill_blank_game():
 
             st.session_state.fb_index += 1
             st.rerun()
+            
 # ------------------- Streamlit Design -------------------
 st.set_page_config(page_title="Vocabuddy", layout="centered")
 st.title("Hi, Welcome to Vocabuddy")
