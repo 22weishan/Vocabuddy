@@ -369,25 +369,28 @@ def create_blank_sentence(word, sentence):
 def play_fill_blank_game():
     st.subheader("Fill-in-the-Blank Game")
 
+    if "user_words" not in st.session_state or len(st.session_state.user_words) != 10:
+        st.warning("Please provide exactly 10 words first.")
+        return
+
     user_words = st.session_state.user_words
 
-    # 初始化
+    # 初始化状态
     if "fb_index" not in st.session_state:
         st.session_state.fb_index = 0
         st.session_state.fb_score = 0
-        st.session_state.fb_answers = [""] * len(user_words)
+        st.session_state.fb_answers = [""] * 10
         st.session_state.fb_sentences = []
 
         for w in user_words:
             sentence = get_example_sentence_mw(w)
-            sentence = clean_html_tags(sentence)
             st.session_state.fb_sentences.append(sentence)
 
     idx = st.session_state.fb_index
 
-    # 🔴🔴🔴【就在这里放】🔴🔴🔴
-    if idx >= len(st.session_state.fb_sentences):
-        st.success(f"Game finished! Your score: {st.session_state.fb_score}/{len(user_words)}")
+    # 结束条件
+    if idx >= len(user_words):
+        st.success(f"Game finished! Your score: {st.session_state.fb_score}/10")
 
         df = pd.DataFrame({
             "Word": user_words,
@@ -395,21 +398,20 @@ def play_fill_blank_game():
             "Your Answer": st.session_state.fb_answers,
             "Correct?": [
                 st.session_state.fb_answers[i] == user_words[i]
-                for i in range(len(user_words))
+                for i in range(10)
             ]
         })
         st.table(df)
 
         st.session_state.game_started = False
         return
-    # 🔴🔴🔴【结束判断到这里为止】🔴🔴🔴
 
-    # ⬇️ 只有“没结束”才会执行到这里
+    # 当前题目
     word = user_words[idx]
     sentence = st.session_state.fb_sentences[idx]
     blanked = create_blank_sentence(word, sentence)
 
-    st.write(f"**Question {idx + 1}/{len(user_words)}**")
+    st.write(f"**Question {idx + 1}/10**")
     st.write(blanked)
 
     choice = st.radio(
@@ -428,7 +430,6 @@ def play_fill_blank_game():
 
         st.session_state.fb_index += 1
         st.rerun()
-
 
 # ------------------- Streamlit Design -------------------
 st.set_page_config(page_title="Vocabuddy", layout="centered")
