@@ -651,7 +651,6 @@ if st.session_state.game_started and st.session_state.game_mode == "Matching Gam
 if st.session_state.game_started and st.session_state.game_mode == "Listen & Choose":
     st.subheader("Listen & Choose Game")
 
-    # 初始化状态
     if "listen_index" not in st.session_state:
         st.session_state.listen_index = 0
     if "listen_score" not in st.session_state:
@@ -669,7 +668,6 @@ if st.session_state.game_started and st.session_state.game_mode == "Listen & Cho
         st.audio(audio_file, format="audio/mp3")
         st.info(f"Word {idx + 1} of {len(user_words)}")
 
-        # 显示全部 10 个单词作为选项
         user_choice = st.radio(
             "Which word did you hear?",
             options=user_words,
@@ -687,7 +685,6 @@ if st.session_state.game_started and st.session_state.game_mode == "Listen & Cho
             
 
     else:
-        # 游戏结束
         st.success(f"Game finished! Your score: {st.session_state.listen_score}/{len(user_words)}")
         df = pd.DataFrame({
             "Word": user_words,
@@ -699,7 +696,6 @@ if st.session_state.game_started and st.session_state.game_mode == "Listen & Cho
         st.subheader("Your results")
         st.table(df)
 
-        # 重置状态，方便下次游戏
         st.session_state.game_started = False
         st.session_state.listen_index = 0
         st.session_state.listen_score = 0
