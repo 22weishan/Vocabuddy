@@ -454,12 +454,10 @@ def play_fill_blank_game():
             correct_answer = st.session_state.fb_correct_answers[original_idx] if original_idx < len(st.session_state.fb_correct_answers) else ""
             
             results.append({
-                "Question": i + 1,
                 "Original Sentence": st.session_state.fb_sentences[original_idx] if original_idx < len(st.session_state.fb_sentences) else "",
                 "Blanked Sentence": st.session_state.fb_blanked[original_idx] if original_idx < len(st.session_state.fb_blanked) else "",
                 "Your Answer": user_answer,
                 "Correct Answer": correct_answer,
-                "Correct": user_answer.lower() == correct_answer.lower() if user_answer and correct_answer else False
             })
 
         df = pd.DataFrame(results)
