@@ -188,84 +188,279 @@ def play_matching_game():
         # end game
         st.session_state.game_started = False
         
-# ------------------- Fill-in-the-Blank Game -------------------
-def get_example_sentence(word):
-    """生成示例句子，可以替换为词典API"""
-    templates = [
-        f"I really like the {word} in the park.",
-        f"She bought a new {word} yesterday.",
-        f"The {word} is very expensive.",
-        f"Do you know where the {word} is?",
-        f"He gave me a {word} as a gift.",
-        f"We saw a beautiful {word} on our trip.",
-        f"The {word} belongs to my friend.",
-        f"I can't find my {word} anywhere.",
-        f"This {word} is very useful.",
-        f"They talked about the {word} all day."
-    ]
-    import random
-    return random.choice(templates)
+# ------------------- Merriam-Webster API -------------------
+MW_API_KEY = "b03334be-a55f-4416-9ff4-782b15a4dc77"  
+
+def clean_html_tags(text):
+    """Clean HTML-like tags from Merriam-Webster API response"""
+    import re
+    # 移除 {wi}...{/wi} 标签
+    text = re.sub(r'\{/?wi\}', '', text)
+    # 移除 {it}...{/it} 标签
+    text = re.sub(r'\{/?it\}', '', text)
+    # 移除其他常见标签
+    text = re.sub(r'\{/?[^}]+?\}', '', text)
+    # 清理多余的空格
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+def get_example_sentence_mw(word):
+    """
+    Get example sentence from Merriam-Webster Collegiate API.
+    Fallback to a template if no sentence is found.
+    """
+    url = f"https://www.dictionaryapi.com/api/v3/references/collegiate/json/{word}?key={MW_API_KEY}"
+    try:
+        r = requests.get(url)
+        data = r.json()
+        if not data or not isinstance(data[0], dict):
+            # 使用清理后的默认句子
+            return f"DEFAULT SENTECT: I LIKE TO {word} EVRY DAY."
+        defs = data[0].get("def", [])
+        for d in defs:
+            sseq = d.get("sseq", [])
+            for sense_group in sseq:
+                for sense in sense_group:
+                    dt = sense[1].get("dt", [])
+                    for item in dt:
+                        if item[0] == "vis":  # example sentences
+                            vis_list = item[1]
+                            if vis_list:
+                                raw_sentence = vis_list[0]["t"]
+                                # 清理HTML标签
+                                cleaned_sentence = clean_html_tags(raw_sentence)
+                                return cleaned_sentence
+        # 如果没有找到例句，返回清理后的默认句子
+        return f"DEFAULT SENTECT: I LIKE TO {word} EVRY DAY."
+    except Exception as e:
+        # 打印错误信息用于调试
+        print(f"Error getting example sentence for {word}: {e}")
+        return f"DEFAULT SENTECT: I LIKE TO {word} EVRY DAY."
 
 def create_blank_sentence(word, sentence):
-    """将句子中的目标词挖空"""
+    """Replace the target word with blanks in the sentence, handling variations"""
     import re
-    pattern = re.compile(rf"\b{re.escape(word)}\b", re.IGNORECASE)
-    blanked = pattern.sub("_____", sentence)
-    return blanked
-
-def play_fill_in_the_blank():
+    
+    # 确保句子已经清理过HTML标签
+    cleaned_sentence = clean_html_tags(sentence)
+    
+    # 策略1：优先尝试匹配单词的基本形式（不区分大小写）
+    # 使用正则表达式确保匹配整个单词
+    pattern_base = re.compile(rf'\b{re.escape(word)}\b', re.IGNORECASE)
+    if pattern_base.search(cleaned_sentence):
+        # 找到实际出现在句子中的形式（保持原有大小写）
+        match = pattern_base.search(cleaned_sentence)
+        actual_word = cleaned_sentence[match.start():match.end()]
+        return cleaned_sentence.replace(actual_word, "_____")
+    
+    # 策略2：如果基本形式没找到，尝试更灵活的匹配
+    # 移除可能的标点符号进行匹配
+    word_lower = word.lower()
+    words_in_sentence = re.findall(r'\b\w+\b', cleaned_sentence)
+    
+    for i, w in enumerate(words_in_sentence):
+        if w.lower() == word_lower:
+            # 构建正则表达式来匹配这个具体的单词（包括可能的标点）
+            pattern_specific = re.compile(rf'\b{re.escape(w)}\b')
+            match = pattern_specific.search(cleaned_sentence)
+            if match:
+                # 获取匹配位置
+                start, end = match.start(), match.end()
+                # 创建空白句子
+                return cleaned_sentence[:start] + "_____" + cleaned_sentence[end:]
+    
+    # 策略3：如果还是没找到，检查单词的变体（如复数、时态变化）
+    # 简单的变体检测规则
+    variants = [
+        word + 's',  # 复数
+        word + 'es',  # 复数变体
+        word + 'ed',  # 过去式
+        word + 'ing',  # 进行时
+        word + 'er',  # 比较级
+        word + 'est',  # 最高级
+        word[:-1] + 'ies' if word.endswith('y') else None,  # 复数变体
+        word + 'd' if not word.endswith('e') else None,  # 过去式变体
+    ]
+    
+    for variant in variants:
+        if variant:
+            variant_pattern = re.compile(rf'\b{re.escape(variant)}\b', re.IGNORECASE)
+            if variant_pattern.search(cleaned_sentence):
+                match = variant_pattern.search(cleaned_sentence)
+                actual_variant = cleaned_sentence[match.start():match.end()]
+                return cleaned_sentence.replace(actual_variant, "_____")
+    
+    # 策略4：如果以上都失败，尝试部分匹配
+    if word_lower in cleaned_sentence.lower():
+        # 找到单词在句子中的位置（不区分大小写）
+        start = cleaned_sentence.lower().find(word_lower)
+        end = start + len(word)
+        # 确保我们替换的是整个单词，而不是部分单词
+        # 检查边界字符
+        if (start == 0 or not cleaned_sentence[start-1].isalnum()) and \
+           (end >= len(cleaned_sentence) or not cleaned_sentence[end].isalnum()):
+            return cleaned_sentence[:start] + "_____" + cleaned_sentence[end:]
+    
+    # 策略5：如果都没有匹配到，手动创建包含空白的句子
+    return cleaned_sentence + f" (Fill in: _____)"
+    
+def play_fill_blank_game():
     st.subheader("Fill-in-the-Blank Game")
 
-    # 用户输入的单词列表
+    st.info(
+        'When no dictionary example is available, a default sentence will be used '
+        '("I LIKE TO ___ EVERY DAY.").'
+    )
+    
     if "user_words" not in st.session_state or len(st.session_state.user_words) != 10:
         st.warning("Please provide exactly 10 words first.")
         return
+
     user_words = st.session_state.user_words
 
-    # 初始化 session_state
-    if "fib_idx" not in st.session_state or st.session_state.get("fib_word_list") != user_words:
-        st.session_state.fib_idx = 0
-        st.session_state.fib_score = 0
-        st.session_state.fib_word_list = user_words
-        st.session_state.fib_sentences = [get_example_sentence(w) for w in user_words]
-        # 新增：生成并保存随机选项顺序
-        options = user_words.copy()
-        random.shuffle(options)
-        st.session_state.fib_options_order = options  # 保存洗牌后的顺序
+    # ---------------- 初始化 ----------------
+    should_reinit = False
 
+    if "fb_index" not in st.session_state:
+        should_reinit = True
+    elif "fb_correct_answers" not in st.session_state:
+        should_reinit = True
+    elif len(st.session_state.fb_correct_answers) != 10:
+        should_reinit = True
     
-    idx = st.session_state.fib_idx
-    if idx >= len(user_words):
-        st.success(f"Game finished! Your score: {st.session_state.fib_score}/{len(user_words)}")
-        if st.button("Restart Fill-in-the-Blank"):
-            st.session_state.fib_idx = 0
-            st.session_state.fib_score = 0
-            st.session_state.fib_sentences = [get_example_sentence(w) for w in user_words]
-            # 重新生成选项顺序
-            options = user_words.copy()
+    if should_reinit:
+        st.session_state.fb_index = 0
+        st.session_state.fb_score = 0
+
+        # 永久正确答案快照
+        st.session_state.fb_correct_answers = user_words.copy()
+
+        # 初始化状态
+        st.session_state.fb_answers = [""] * 10
+        st.session_state.fb_sentences = []
+        st.session_state.fb_blanked = []
+        st.session_state.fb_order = []
+        st.session_state.fb_options = []  # 新增：保存每个问题的选项顺序
+
+        for w in st.session_state.fb_correct_answers:
+            sentence = get_example_sentence_mw(w)
+            st.session_state.fb_sentences.append(sentence)
+            st.session_state.fb_blanked.append(
+                create_blank_sentence(w, sentence)
+            )
+
+        # 创建随机播放顺序
+        order = list(range(10))
+        random.shuffle(order)
+        st.session_state.fb_order = order
+        
+        # 为每个问题创建固定的选项顺序
+        st.session_state.fb_options = []
+        for i in range(10):
+            options = st.session_state.fb_correct_answers.copy()
             random.shuffle(options)
-            st.session_state.fib_options_order = options
+            st.session_state.fb_options.append(options)
+
+    idx = st.session_state.fb_index
+
+    # ---------------- 游戏结束 ----------------
+    if idx >= 10:
+        st.success(f"Game finished! Your score: {st.session_state.fb_score}/10")
+
+        results = []
+        for i in range(10):
+            original_idx = st.session_state.fb_order[i] if i < len(st.session_state.fb_order) else i
+            user_answer = st.session_state.fb_answers[original_idx] if original_idx < len(st.session_state.fb_answers) else ""
+            correct_answer = st.session_state.fb_correct_answers[original_idx] if original_idx < len(st.session_state.fb_correct_answers) else ""
+            
+            results.append({
+                "Original Sentence": st.session_state.fb_sentences[original_idx] if original_idx < len(st.session_state.fb_sentences) else "",
+                "Blanked Sentence": st.session_state.fb_blanked[original_idx] if original_idx < len(st.session_state.fb_blanked) else "",
+                "Your Answer": user_answer,
+                "Correct Answer": correct_answer,
+            })
+
+        df = pd.DataFrame(results)
+        st.table(df)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Play Again"):
+                # 重置游戏进度
+                st.session_state.fb_index = 0
+                st.session_state.fb_score = 0
+                st.session_state.fb_answers = [""] * 10
+                # 重新打乱播放顺序
+                order = list(range(10))
+                random.shuffle(order)
+                st.session_state.fb_order = order
+                # 重新生成选项顺序
+                st.session_state.fb_options = []
+                for i in range(10):
+                    options = st.session_state.fb_correct_answers.copy()
+                    random.shuffle(options)
+                    st.session_state.fb_options.append(options)
+                st.rerun()
+        
+        with col2:
+            if st.button("Back to Main Menu"):
+                st.session_state.game_started = False
+                st.rerun()
+        
         return
 
-    current_word = user_words[idx]
-    current_sentence = st.session_state.fib_sentences[idx]
-    blanked_sentence = create_blank_sentence(current_word, current_sentence)
-    st.write(f"Sentence {idx+1}: {blanked_sentence}")
+    # ---------------- 当前题目 ----------------
+    if idx < len(st.session_state.fb_order):
+        original_idx = st.session_state.fb_order[idx]
+    else:
+        original_idx = idx
 
-    # 使用保存的选项顺序，而不是每次都重新洗牌
-    options = st.session_state.fib_options_order
+    if original_idx < len(st.session_state.fb_correct_answers):
+        word = st.session_state.fb_correct_answers[original_idx]
+    else:
+        st.error("Game data error. Please restart the game.")
+        return
 
-    choice = st.radio("Choose the correct word:", options, key=f"fib_choice_{idx}")
+    if original_idx < len(st.session_state.fb_blanked):
+        blanked = st.session_state.fb_blanked[original_idx]
+    else:
+        blanked = "Error: No blanked sentence available"
 
-    if st.button("Submit", key=f"fib_submit_{idx}"):
-        if choice.lower() == current_word.lower():
-            st.success("Correct!")
-            st.session_state.fib_score += 1
+    st.write(f"**Question {idx + 1}/10**")
+    st.write(blanked)
+
+    with st.expander("Show original sentence (for reference)"):
+        if original_idx < len(st.session_state.fb_sentences):
+            st.write(st.session_state.fb_sentences[original_idx])
         else:
-            st.error(f"Incorrect! The correct word was '{current_word}'.")
-        st.session_state.fib_idx += 1
-        st.rerun()
+            st.write("Original sentence not available")
 
+    # 使用预先保存的选项顺序，而不是每次都重新洗牌
+    if idx < len(st.session_state.fb_options):
+        options = st.session_state.fb_options[idx]
+    else:
+        # 后备方案：使用原始单词列表
+        options = st.session_state.fb_correct_answers.copy()
+
+    choice = st.radio(
+        "Choose the correct word:",
+        options=options,
+        key=f"fb_choice_{idx}"  # key包含idx，确保每个问题有独立的widget
+    )
+
+    if st.button("Submit", key=f"fb_submit_{idx}"):
+        if original_idx < len(st.session_state.fb_answers):
+            st.session_state.fb_answers[original_idx] = choice
+
+            if choice.lower() == word.lower():
+                st.session_state.fb_score += 1
+                st.success("Correct!")
+            else:
+                st.error(f"Wrong. Correct answer: {word}")
+
+            st.session_state.fb_index += 1
+            st.rerun()
+            
 # ------------------- Streamlit Design -------------------
 st.set_page_config(page_title="Vocabuddy", layout="centered")
 st.title("Hi, Welcome to Vocabuddy")
@@ -328,21 +523,13 @@ if st.session_state.user_words and len(st.session_state.user_words) == 10:
     st.markdown("### 2. Choose a game and start")
     st.session_state.game_mode = st.selectbox(
         "Choose game mode",
-        ["Scrambled Letters Game", "Matching Game", "Listen & Choose", "Fill-in-the-Blank"],
+        ["Scrambled Letters Game", "Matching Game", "Listen & Choose", "Fill-in-the-Blank Game"],
         index=0
     )
 
     # Start Game button: also reset per-game session flags
     if st.button("Start Game"):
         st.session_state.game_started = True
-        # reset Listen & Choose
-        st.session_state.listen_index = 0
-        st.session_state.listen_score = 0
-        st.session_state.listen_answers = [""] * 10
-
-        st.session_state.listen_word_order = st.session_state.user_words.copy()
-        random.shuffle(st.session_state.listen_word_order)
-
         # reset Scramble Game
         st.session_state.scramble_index = 0
         st.session_state.scramble_score = 0
@@ -406,82 +593,51 @@ if st.session_state.game_started and st.session_state.game_mode == "Matching Gam
 if st.session_state.game_started and st.session_state.game_mode == "Listen & Choose":
     st.subheader("Listen & Choose Game")
 
-    # 初始化状态 - 确保有播放顺序和映射
+    # 初始化状态
     if "listen_index" not in st.session_state:
         st.session_state.listen_index = 0
     if "listen_score" not in st.session_state:
         st.session_state.listen_score = 0
     if "listen_answers" not in st.session_state:
         st.session_state.listen_answers = [""] * 10
-    if "listen_play_order" not in st.session_state:
-        # 创建随机播放顺序（打乱音频播放）
-        st.session_state.listen_play_order = random.sample(st.session_state.user_words, len(st.session_state.user_words))
-    if "listen_state_initialized" not in st.session_state:
-        st.session_state.listen_state_initialized = True
 
     idx = st.session_state.listen_index
-    user_words = st.session_state.user_words  # 原始单词列表（正确答案参考）
-    
+    user_words = st.session_state.user_words
+
     if idx < len(user_words):
-        # 按随机顺序获取当前播放的单词
-        current_word = st.session_state.listen_play_order[idx]
+        current_word = user_words[idx]
         audio_file = generate_tts_audio(current_word)
 
         st.audio(audio_file, format="audio/mp3")
         st.info(f"Word {idx + 1} of {len(user_words)}")
 
-        # 显示全部 10 个单词作为选项（保持原始顺序）
+        # 显示全部 10 个单词作为选项
         user_choice = st.radio(
             "Which word did you hear?",
-            options=user_words,  # 选项保持原始顺序
+            options=user_words,
             key=f"listen_choice_{idx}"
         )
 
         if st.button("Submit", key=f"listen_submit_{idx}"):
-            # 记录用户答案（按播放顺序）
             st.session_state.listen_answers[idx] = user_choice
-            
-            # 检查答案
             if user_choice == current_word:
                 st.session_state.listen_score += 1
                 st.success("Correct! 🎉")
             else:
                 st.error(f"Wrong. The correct answer was **{current_word}**.")
-            
             st.session_state.listen_index += 1
-            st.rerun()
             
+
     else:
-        # 游戏结束 - 重新映射答案到原始顺序
-        # 创建按原始顺序排列的答案列表
-        original_order_answers = [""] * 10
-        
-        # 将播放顺序的答案映射回原始顺序
-        for i, played_word in enumerate(st.session_state.listen_play_order):
-            # 找到这个单词在原始列表中的位置
-            original_index = user_words.index(played_word)
-            # 将用户对这个单词的答案放到正确的位置
-            original_order_answers[original_index] = st.session_state.listen_answers[i]
-        
-        # 重新计算分数以确保准确
-        final_score = 0
-        correct_list = []
-        for i in range(len(user_words)):
-            is_correct = original_order_answers[i] == user_words[i]
-            correct_list.append(is_correct)
-            if is_correct:
-                final_score += 1
-        
-        # 显示最终分数
-        st.success(f"Game finished! Your score: {final_score}/{len(user_words)}")
-        
-        # 创建结果表格（按原始单词顺序）
+        # 游戏结束
+        st.success(f"Game finished! Your score: {st.session_state.listen_score}/{len(user_words)}")
         df = pd.DataFrame({
             "Word": user_words,
-            "Your Answer": original_order_answers,
-            "Correct?": correct_list
+            "Your Answer": st.session_state.listen_answers,
+            "Correct?": [
+                ua == w for ua, w in zip(st.session_state.listen_answers, user_words)
+            ]
         })
-        
         st.subheader("Your results")
         st.table(df)
 
@@ -490,14 +646,7 @@ if st.session_state.game_started and st.session_state.game_mode == "Listen & Cho
         st.session_state.listen_index = 0
         st.session_state.listen_score = 0
         st.session_state.listen_answers = [""] * 10
-        # 清理播放顺序相关的状态
-        if "listen_play_order" in st.session_state:
-            del st.session_state.listen_play_order
-        if "listen_state_initialized" in st.session_state:
-            del st.session_state.listen_state_initialized
         
-# ------------------- Fill-in-the-Blank -------------------
-if st.session_state.game_started and st.session_state.game_mode == "Fill-in-the-Blank":
-    play_fill_in_the_blank()
-
-
+# ------------------- Fill-in-the-Blank  -------------------
+if st.session_state.game_started and st.session_state.game_mode == "Fill-in-the-Blank Game":
+    play_fill_blank_game()
