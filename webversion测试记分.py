@@ -426,7 +426,6 @@ def play_fill_blank_game():
         st.success(f"Game finished! Your score: {st.session_state.fb_score}/10")
 
         df = pd.DataFrame({
-            "No.": list(range(1, 11)),
             "Original Sentence": st.session_state.fb_sentences,
             "Blanked Sentence": st.session_state.fb_blanked,
             "Your Answer": st.session_state.fb_answers,
