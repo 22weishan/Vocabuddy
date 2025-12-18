@@ -419,6 +419,13 @@ def play_fill_blank_game():
     if idx >= len(st.session_state.fb_sentences):
         st.success(f"Game finished! Your score: {st.session_state.fb_score}/10")
 
+        # 确保 fb_blanked 存在，如果不存在则重新生成
+        if "fb_blanked" not in st.session_state:
+            st.session_state.fb_blanked = []
+            for i, w in enumerate(user_words):
+                blanked = create_blank_sentence(w, st.session_state.fb_sentences[i])
+                st.session_state.fb_blanked.append(blanked)
+
         df = pd.DataFrame({
             "Word": user_words,
             "Original Sentence": st.session_state.fb_sentences,
@@ -436,7 +443,14 @@ def play_fill_blank_game():
 
     # 当前题目
     word = user_words[idx]
-    blanked = st.session_state.fb_blanked[idx]  # 使用预先生成的空白句子
+    
+    # 确保当前句子的空白版本存在
+    if idx >= len(st.session_state.fb_blanked):
+        # 如果空白句子不存在，重新生成
+        blanked = create_blank_sentence(word, st.session_state.fb_sentences[idx])
+        st.session_state.fb_blanked.append(blanked)
+    else:
+        blanked = st.session_state.fb_blanked[idx]
 
     st.write(f"**Question {idx + 1}/10**")
     st.write(blanked)
