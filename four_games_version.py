@@ -308,15 +308,23 @@ def play_fill_blank_game():
     # ______ Fill-in-the-Blank Game (改进版) ______
     if st.session_state.game_started and st.session_state.game_mode == "Fill-in-the-Blank Game":
         st.subheader("📝 Fill-in-the-Blank Game")
-
+        
+        # 显示提示信息
+        st.info(
+            'When no dictionary example is available, a default sentence will be used '
+            '("I LIKE TO ___ EVERY DAY.").'
+        )
+        
         # 初始化游戏状态
         if "fb_index" not in st.session_state:
             st.session_state.fb_index = 0
             st.session_state.fb_score = 0
+            st.session_state.fb_total_questions = 0  # 只计算非fallback的题目数量
             st.session_state.fb_answers = [""] * 10
             st.session_state.fb_correct_answers = []
             st.session_state.fb_blanked_sentences = []
             st.session_state.fb_original_sentences = []
+            st.session_state.fb_is_fallback = []  # 新增：记录是否为fallback句子
             st.session_state.fb_played_order = []  # 存储打乱的问题顺序
             st.session_state.fb_waiting_for_next = False
         
@@ -332,6 +340,8 @@ def play_fill_blank_game():
             # 2. 为每个单词获取例句并创建填空句子
             st.session_state.fb_blanked_sentences = []
             st.session_state.fb_original_sentences = []
+            st.session_state.fb_is_fallback = []  # 初始化fallback记录
+            st.session_state.fb_total_questions = 0  # 重置非fallback题目计数
             
             st.info("⏳ Generating example sentences...")
             progress_bar = st.progress(0)
@@ -344,6 +354,14 @@ def play_fill_blank_game():
                 # 创建填空句子
                 blanked_sentence = create_blank_sentence(word, sentence)
                 st.session_state.fb_blanked_sentences.append(blanked_sentence)
+                
+                # 检查是否为fallback句子
+                is_fallback = "DEFAULT SENTENCE" in sentence.upper() or "DEFAULT SENTENCE" in blanked_sentence.upper()
+                st.session_state.fb_is_fallback.append(is_fallback)
+                
+                # 如果不是fallback句子，增加题目计数
+                if not is_fallback:
+                    st.session_state.fb_total_questions += 1
                 
                 # 更新进度条
                 progress_bar.progress((i + 1) / len(user_words))
@@ -362,8 +380,13 @@ def play_fill_blank_game():
             current_sentence = st.session_state.fb_blanked_sentences[current_order]
             correct_word = st.session_state.fb_correct_answers[current_order]
             original_sentence = st.session_state.fb_original_sentences[current_order]
+            is_fallback = st.session_state.fb_is_fallback[current_order]
             
-            st.info(f"📝 Question {idx + 1} of {len(user_words)}")
+            # 显示是否为fallback句子（用图标表示）
+            if is_fallback:
+                st.info(f"📝 Question {idx + 1} of {len(user_words)} (🎯 Default Sentence - Not Counted)")
+            else:
+                st.info(f"📝 Question {idx + 1} of {len(user_words)}")
             
             # 显示填空句子
             st.markdown(f"### {current_sentence}")
@@ -375,7 +398,6 @@ def play_fill_blank_game():
             cols = st.columns(2)  # 创建两列
             
             # 将10个单词分配到两列
-            user_choice = None
             for i, word in enumerate(user_words):
                 col_idx = i % 2  # 0表示第一列，1表示第二列
                 with cols[col_idx]:
@@ -417,13 +439,21 @@ def play_fill_blank_game():
                     # 显示原始句子（展开状态）
                     with st.expander("📖 Show original sentence"):
                         st.write(f"**Original sentence:** {original_sentence}")
+                        if is_fallback:
+                            st.warning("⚠️ This is a default sentence - not counted in final score")
                     
-                    # 检查答案
+                    # 检查答案（只有非fallback句子才计分）
                     if user_choice.lower() == correct_word.lower():
-                        st.session_state.fb_score += 1
-                        st.success(f"✅ Correct! **'{correct_word}'** fits perfectly!")
+                        if not is_fallback:
+                            st.session_state.fb_score += 1
+                            st.success(f"✅ Correct! **'{correct_word}'** fits perfectly!")
+                        else:
+                            st.success(f"✅ Correct! **'{correct_word}'** fits perfectly! (Default sentence - not scored)")
                     else:
-                        st.error(f"❌ Wrong. You selected **'{user_choice}'**. The correct answer was **'{correct_word}'**.")
+                        if not is_fallback:
+                            st.error(f"❌ Wrong. You selected **'{user_choice}'**. The correct answer was **'{correct_word}'**.")
+                        else:
+                            st.error(f"❌ Wrong. You selected **'{user_choice}'**. The correct answer was **'{correct_word}'**. (Default sentence - not scored)")
                     
                     # 清除当前选择
                     if f"fb_selected_{idx}" in st.session_state:
@@ -444,7 +474,13 @@ def play_fill_blank_game():
         else:
             # 游戏结束：显示结果
             st.balloons()  # 庆祝动画
-            st.success(f"🎮 Game Finished! Your score: **{st.session_state.fb_score}/{len(user_words)}**")
+            
+            # 计算有效题目（非fallback）的数量
+            valid_questions = st.session_state.fb_total_questions
+            if valid_questions > 0:
+                st.success(f"🎮 Game Finished! Your score: **{st.session_state.fb_score}/{valid_questions}** (excluding default sentences)")
+            else:
+                st.success(f"🎮 Game Finished! All sentences were default sentences - no score calculated")
             
             # 创建结果表格
             df_data = []
@@ -454,14 +490,24 @@ def play_fill_blank_game():
                 user_answer = st.session_state.fb_answers[original_idx]
                 correct_answer = st.session_state.fb_correct_answers[original_idx]
                 original_sentence = st.session_state.fb_original_sentences[original_idx]
-                is_correct = user_answer.lower() == correct_answer.lower() if user_answer else False
+                is_fallback = st.session_state.fb_is_fallback[original_idx]
+                
+                # 检查是否答对（只有非fallback句子才需要判断）
+                if is_fallback:
+                    result = "⚪ Default"
+                    scored = "No"
+                else:
+                    is_correct = user_answer.lower() == correct_answer.lower() if user_answer else False
+                    result = "✅ Correct" if is_correct else "❌ Wrong"
+                    scored = "Yes"
                 
                 df_data.append({
                     "Blanked Sentence": blanked_sentence,
                     "Original Sentence": original_sentence,
-                    "Your Answer": user_answer if user_answer else "(No answer)",
                     "Correct Answer": correct_answer,
-                    "Result": "✅" if is_correct else "❌"
+                    "Your Answer": user_answer if user_answer else "(No answer)",
+                    "Result": result,
+                    "Scored?": scored
                 })
             
             df = pd.DataFrame(df_data)
@@ -481,34 +527,51 @@ def play_fill_blank_game():
                         "Original Sentence",
                         width="large"
                     ),
-                    "Your Answer": "Your Choice",
                     "Correct Answer": "Correct Word",
+                    "Your Answer": "Your Choice",
                     "Result": st.column_config.TextColumn(
                         "Result",
-                        help="✅ = Correct, ❌ = Wrong"
+                        help="✅ = Correct, ❌ = Wrong, ⚪ = Default sentence"
+                    ),
+                    "Scored?": st.column_config.TextColumn(
+                        "Counted?",
+                        help="Whether this question was counted in your final score"
                     )
                 },
                 hide_index=True,
                 use_container_width=True
             )
             
-            # 显示分数统计
-            correct_count = sum(1 for result in df_data if result["Result"] == "✅")
-            accuracy = (correct_count / len(user_words)) * 100
-            
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Total Score", f"{st.session_state.fb_score}/{len(user_words)}")
-            with col2:
-                st.metric("Accuracy", f"{accuracy:.1f}%")
-            with col3:
-                if accuracy >= 80:
-                    performance = "🏆 Excellent"
-                elif accuracy >= 60:
-                    performance = "👍 Good"
-                else:
-                    performance = "📚 Needs Practice"
-                st.metric("Performance", performance)
+            # 显示分数统计（只计算非fallback题目）
+            if valid_questions > 0:
+                accuracy = (st.session_state.fb_score / valid_questions) * 100
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Total Score", f"{st.session_state.fb_score}/{valid_questions}")
+                with col2:
+                    st.metric("Accuracy", f"{accuracy:.1f}%")
+                with col3:
+                    if accuracy >= 80:
+                        performance = "🏆 Excellent"
+                    elif accuracy >= 60:
+                        performance = "👍 Good"
+                    else:
+                        performance = "📚 Needs Practice"
+                    st.metric("Performance", performance)
+                
+                # 显示统计信息
+                fallback_count = len([x for x in st.session_state.fb_is_fallback if x])
+                st.info(f"📊 Statistics: {len(user_words)} total questions, {valid_questions} scored questions, {fallback_count} default sentences")
+            else:
+                st.warning("⚠️ All sentences were default sentences. Your performance is not scored.")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Total Score", "N/A")
+                with col2:
+                    st.metric("Accuracy", "N/A")
+                with col3:
+                    st.metric("Performance", "No Score")
             
             # 添加两个按钮
             st.markdown("---")
@@ -522,8 +585,13 @@ def play_fill_blank_game():
                     # 重置填空游戏状态
                     st.session_state.fb_index = 0
                     st.session_state.fb_score = 0
+                    st.session_state.fb_total_questions = 0
                     st.session_state.fb_answers = [""] * 10
-                    st.session_state.fb_played_order = []  # 清空，下次会重新生成
+                    st.session_state.fb_correct_answers = []
+                    st.session_state.fb_blanked_sentences = []
+                    st.session_state.fb_original_sentences = []
+                    st.session_state.fb_is_fallback = []
+                    st.session_state.fb_played_order = []
                     st.session_state.fb_waiting_for_next = False
                     # 清除所有选择状态
                     for key in list(st.session_state.keys()):
@@ -540,7 +608,12 @@ def play_fill_blank_game():
                     # 只重置填空游戏特定状态
                     st.session_state.fb_index = 0
                     st.session_state.fb_score = 0
+                    st.session_state.fb_total_questions = 0
                     st.session_state.fb_answers = [""] * 10
+                    st.session_state.fb_correct_answers = []
+                    st.session_state.fb_blanked_sentences = []
+                    st.session_state.fb_original_sentences = []
+                    st.session_state.fb_is_fallback = []
                     st.session_state.fb_played_order = []
                     st.session_state.fb_waiting_for_next = False
                     # 清除所有选择状态
@@ -557,9 +630,9 @@ def play_fill_blank_game():
                     st.session_state.game_started = False
                     st.session_state.game_mode = None
                     # 清除所有填空游戏状态
-                    for key in ["fb_index", "fb_score", "fb_answers", 
+                    for key in ["fb_index", "fb_score", "fb_total_questions", "fb_answers", 
                                "fb_correct_answers", "fb_blanked_sentences",
-                               "fb_original_sentences", "fb_played_order", 
+                               "fb_original_sentences", "fb_is_fallback", "fb_played_order", 
                                "fb_waiting_for_next"]:
                         if key in st.session_state:
                             del st.session_state[key]
@@ -568,112 +641,6 @@ def play_fill_blank_game():
                         if key.startswith("fb_selected_"):
                             del st.session_state[key]
                     st.rerun()
-                                
-            
-# ------------------- Streamlit Design -------------------
-st.set_page_config(page_title="Vocabuddy", layout="centered")
-st.title("Hi, Welcome to Vocabuddy")
-
-# ------------------- session_state defaults -------------------
-if "user_words" not in st.session_state:
-    st.session_state.user_words = []
-if "game_started" not in st.session_state:
-    st.session_state.game_started = False
-if "game_mode" not in st.session_state:
-    st.session_state.game_mode = None
-
-# Scrambled Game state
-if "scramble_index" not in st.session_state:
-    st.session_state.scramble_index = 0
-if "scramble_score" not in st.session_state:
-    st.session_state.scramble_score = 0
-if "scramble_answers" not in st.session_state:
-    st.session_state.scramble_answers = [""] * 10
-if "scramble_scrambled" not in st.session_state:
-    st.session_state.scramble_scrambled = [""] * 10
-
-# translation cache
-if "translation_cache" not in st.session_state:
-    st.session_state.translation_cache = {}
-
-# ------------------- Users Input -------------------
-st.markdown("### 1. Provide 10 words")
-words_input = st.text_area("Please enter 10 words (use space or enter in another line)", height=120)
-if words_input:
-    st.session_state.user_words = [w.strip() for w in words_input.split() if w.strip()]
-
-col1, col2 = st.columns(2)
-with col1:
-    uploaded_file = st.file_uploader("Upload a file (txt/csv/docx/pdf)", type=["txt","csv","docx","pdf"])
-    if uploaded_file:
-        words_from_file = read_file(uploaded_file)
-        if words_from_file:
-            st.session_state.user_words = words_from_file
-        else:
-            st.warning("Couldn't read file or file empty. Make sure it's a supported format and contains text.")
-
-with col2:
-    uploaded_image = st.file_uploader("Upload an image (OCR)", type=["png","jpg","jpeg","bmp","tiff","tif"])
-    if uploaded_image:
-        words_from_image = read_image(uploaded_image)
-        if words_from_image:
-            st.session_state.user_words = words_from_image
-        else:
-            st.warning("OCR failed or no text found in image. Ensure tesseract is installed and image contains text.")
-
-# ------------------- make sure 10 words -------------------
-if st.session_state.user_words:
-    st.info(f"Current words ({len(st.session_state.user_words)}): {st.session_state.user_words}")
-    if len(st.session_state.user_words) != 10:
-        st.warning("Please provide exactly 10 words to play (you can enter/upload more and then edit).")
-
-# ------------------- choose game mode -------------------
-# 在 "Start Game" 按钮中添加填空游戏的状态重置：
-if st.button("Start Game"):
-    st.session_state.game_started = True
-    original_words = st.session_state.user_words.copy()
-    
-    # 为各个游戏创建单词列表副本
-    st.session_state.scramble_words = original_words.copy()
-    random.shuffle(st.session_state.scramble_words)
-    
-    st.session_state.matching_words = original_words.copy()
-    st.session_state.listen_words = original_words.copy()
-    st.session_state.fill_blank_words = original_words.copy()  # 填空游戏使用原始顺序
-    
-    # reset Scramble Game
-    st.session_state.scramble_index = 0
-    st.session_state.scramble_score = 0
-    st.session_state.scramble_answers = [""] * 10
-    st.session_state.scramble_scrambled = [""] * 10
-    
-    # reset Matching Game
-    st.session_state.matching_answers = {}
-    st.session_state.matching_score = 0
-    st.session_state.matching_words_generated = False
-    
-    # reset Listen & Choose Game
-    st.session_state.Listen_index = 0
-    st.session_state.Listen_score = 0
-    st.session_state.Listen_answers = [""] * 10
-    st.session_state.Listen_played_words = []
-    st.session_state.Listen_options_list = []
-    st.session_state.waiting_for_next = False
-    
-    # ⭐️ 新增：reset Fill-in-the-Blank Game ⭐️
-    st.session_state.fb_index = 0
-    st.session_state.fb_score = 0
-    st.session_state.fb_answers = [""] * 10
-    st.session_state.fb_correct_answers = []
-    st.session_state.fb_blanked_sentences = []
-    st.session_state.fb_original_sentences = []
-    st.session_state.fb_played_order = []
-    st.session_state.fb_waiting_for_next = False
-    
-    # 清除所有选择状态
-    for key in list(st.session_state.keys()):
-        if key.startswith("fb_selected_") or key.startswith("selected_"):
-            del st.session_state[key]
             
 # ------------------- Scrambled Game -------------------
 if st.session_state.game_started and st.session_state.game_mode == "Scrambled Letters Game":
