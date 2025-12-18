@@ -318,38 +318,71 @@ def get_example_sentence_mw(word):
         return f"I like to {word} every day."
 
 def create_blank_sentence(word, sentence):
-    """Replace the target word with blanks in the sentence"""
+    """Replace the target word with blanks in the sentence, handling variations"""
     import re
     
     # 确保句子已经清理过HTML标签
     cleaned_sentence = clean_html_tags(sentence)
     
-    # 尝试不同的匹配策略
-    # 策略1：精确匹配（区分大小写）
-    if word in cleaned_sentence:
-        return cleaned_sentence.replace(word, "_____")
+    # 策略1：优先尝试匹配单词的基本形式（不区分大小写）
+    # 使用正则表达式确保匹配整个单词
+    pattern_base = re.compile(rf'\b{re.escape(word)}\b', re.IGNORECASE)
+    if pattern_base.search(cleaned_sentence):
+        # 找到实际出现在句子中的形式（保持原有大小写）
+        match = pattern_base.search(cleaned_sentence)
+        actual_word = cleaned_sentence[match.start():match.end()]
+        return cleaned_sentence.replace(actual_word, "_____")
     
-    # 策略2：不区分大小写的精确匹配
-    pattern_exact = re.compile(rf'\b{re.escape(word)}\b', re.IGNORECASE)
-    if pattern_exact.search(cleaned_sentence):
-        return pattern_exact.sub("_____", cleaned_sentence)
+    # 策略2：如果基本形式没找到，尝试更灵活的匹配
+    # 移除可能的标点符号进行匹配
+    word_lower = word.lower()
+    words_in_sentence = re.findall(r'\b\w+\b', cleaned_sentence)
     
-    # 策略3：灵活匹配（处理复数、时态变化等）
-    # 例如：capture -> captures, captured
-    pattern_flexible = re.compile(rf'\b{re.escape(word)}[ds]?\b', re.IGNORECASE)
-    if pattern_flexible.search(cleaned_sentence):
-        return pattern_flexible.sub("_____", cleaned_sentence)
+    for i, w in enumerate(words_in_sentence):
+        if w.lower() == word_lower:
+            # 构建正则表达式来匹配这个具体的单词（包括可能的标点）
+            pattern_specific = re.compile(rf'\b{re.escape(w)}\b')
+            match = pattern_specific.search(cleaned_sentence)
+            if match:
+                # 获取匹配位置
+                start, end = match.start(), match.end()
+                # 创建空白句子
+                return cleaned_sentence[:start] + "_____" + cleaned_sentence[end:]
     
-    # 策略4：部分匹配（作为最后的手段）
-    # 在句子中查找单词的任何出现
-    if word.lower() in cleaned_sentence.lower():
+    # 策略3：如果还是没找到，检查单词的变体（如复数、时态变化）
+    # 简单的变体检测规则
+    variants = [
+        word + 's',  # 复数
+        word + 'es',  # 复数变体
+        word + 'ed',  # 过去式
+        word + 'ing',  # 进行时
+        word + 'er',  # 比较级
+        word + 'est',  # 最高级
+        word[:-1] + 'ies' if word.endswith('y') else None,  # 复数变体
+        word + 'd' if not word.endswith('e') else None,  # 过去式变体
+    ]
+    
+    for variant in variants:
+        if variant:
+            variant_pattern = re.compile(rf'\b{re.escape(variant)}\b', re.IGNORECASE)
+            if variant_pattern.search(cleaned_sentence):
+                match = variant_pattern.search(cleaned_sentence)
+                actual_variant = cleaned_sentence[match.start():match.end()]
+                return cleaned_sentence.replace(actual_variant, "_____")
+    
+    # 策略4：如果以上都失败，尝试部分匹配
+    if word_lower in cleaned_sentence.lower():
         # 找到单词在句子中的位置（不区分大小写）
-        start = cleaned_sentence.lower().find(word.lower())
+        start = cleaned_sentence.lower().find(word_lower)
         end = start + len(word)
-        return cleaned_sentence[:start] + "_____" + cleaned_sentence[end:]
+        # 确保我们替换的是整个单词，而不是部分单词
+        # 检查边界字符
+        if (start == 0 or not cleaned_sentence[start-1].isalnum()) and \
+           (end >= len(cleaned_sentence) or not cleaned_sentence[end].isalnum()):
+            return cleaned_sentence[:start] + "_____" + cleaned_sentence[end:]
     
-    # 如果都没有匹配到，返回原始句子（这应该不会发生）
-    return cleaned_sentence
+    # 策略5：如果都没有匹配到，手动创建包含空白的句子
+    return cleaned_sentence + f" (Fill in: _____)"
     
 def play_fill_blank_game():
     st.subheader("Fill-in-the-Blank Game")
@@ -366,10 +399,19 @@ def play_fill_blank_game():
         st.session_state.fb_score = 0
         st.session_state.fb_answers = [""] * 10
         st.session_state.fb_sentences = []
+        st.session_state.fb_blanked = []  # 新增：存储空白句子
 
         for w in user_words:
             sentence = get_example_sentence_mw(w)
             st.session_state.fb_sentences.append(sentence)
+            
+            # 创建空白句子并存储
+            blanked = create_blank_sentence(w, sentence)
+            st.session_state.fb_blanked.append(blanked)
+            
+            # 调试信息（可选）
+            if "_____" not in blanked:
+                st.warning(f"Warning: Could not create blank for '{w}'. Sentence: {sentence}")
 
     idx = st.session_state.fb_index
 
@@ -379,10 +421,11 @@ def play_fill_blank_game():
 
         df = pd.DataFrame({
             "Word": user_words,
-            "Sentence": st.session_state.fb_sentences,
+            "Original Sentence": st.session_state.fb_sentences,
+            "Blanked Sentence": st.session_state.fb_blanked,  # 显示空白句子
             "Your Answer": st.session_state.fb_answers,
             "Correct?": [
-                st.session_state.fb_answers[i] == user_words[i]
+                st.session_state.fb_answers[i].lower() == user_words[i].lower()
                 for i in range(10)
             ]
         })
@@ -393,11 +436,14 @@ def play_fill_blank_game():
 
     # 当前题目
     word = user_words[idx]
-    sentence = st.session_state.fb_sentences[idx]
-    blanked = create_blank_sentence(word, sentence)
+    blanked = st.session_state.fb_blanked[idx]  # 使用预先生成的空白句子
 
     st.write(f"**Question {idx + 1}/10**")
     st.write(blanked)
+
+    # 显示原始句子作为参考（可选，用于调试）
+    with st.expander("Show original sentence (for reference)"):
+        st.write(st.session_state.fb_sentences[idx])
 
     choice = st.radio(
         "Choose the correct word:",
