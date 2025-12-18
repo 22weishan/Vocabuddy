@@ -335,10 +335,6 @@ def create_blank_sentence(word, sentence):
     """Replace the target word with blanks in the sentence"""
     import re
 
-    # 创建不区分大小写的正则表达式模式
-    pattern = re.compile(rf\b{re.escape(word)}\b, re.IGNORECASE)
-    blanked = pattern.sub("_____", sentence)
-    return blanked
     
     # 确保句子已经清理过HTML标签
     cleaned_sentence = clean_html_tags(sentence)
