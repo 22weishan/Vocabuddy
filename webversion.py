@@ -10,6 +10,8 @@ import hashlib
 import io
 from gtts import gTTS
 import os
+import time
+
 
 AUDIO_DIR = "audio"
 
@@ -265,62 +267,143 @@ def play_matching_game():
         # end game
         st.session_state.game_started = False
 
-def sentence_builder_game():
-    st.subheader("Sentence Builder")
+# ------------------- Merriam-Webster API -------------------
+MW_API_KEY = "b03334be-a55f-4416-9ff4-782b15a4dc77"  
 
-    st.write("Build a correct sentence using the target word.")
+def get_example_sentence_mw(word):
+    """
+    Get example sentence from Merriam-Webster Collegiate API.
+    Fallback to a template if no sentence is found.
+    """
+    url = f"https://www.dictionaryapi.com/api/v3/references/collegiate/json/{word}?key={MW_API_KEY}"
+    try:
+        r = requests.get(url)
+        data = r.json()
+        if not data or not isinstance(data[0], dict):
+            return f"I like to {word} every day."
+        defs = data[0].get("def", [])
+        for d in defs:
+            sseq = d.get("sseq", [])
+            for sense_group in sseq:
+                for sense in sense_group:
+                    dt = sense[1].get("dt", [])
+                    for item in dt:
+                        if item[0] == "vis":  # example sentences
+                            vis_list = item[1]
+                            if vis_list:
+                                return vis_list[0]["t"]
+        return f"I like to {word} every day."
+    except:
+        return f"I like to {word} every day."
 
-    # 题库（你可以随时扩展）
-    questions = [
-        {
-            "word": "analyze",
-            "subject": ["The student", "The teacher", "The researcher"],
-            "adverb": ["carefully", "quickly", "randomly"],
-            "verb": "analyzed",
-            "object": ["the data", "the homework", "the experiment"],
-            "correct": [
-                ("The student", "carefully", "the data"),
-                ("The researcher", "carefully", "the experiment")
-            ]
-        },
-        {
-            "word": "conduct",
-            "subject": ["The class", "The researcher", "The child"],
-            "adverb": ["successfully", "angrily", "happily"],
-            "verb": "conducted",
-            "object": ["a survey", "a study", "a sandwich"],
-            "correct": [
-                ("The researcher", "successfully", "a study"),
-                ("The class", "successfully", "a survey")
-            ]
-        }
-    ]
+def create_blank_sentence(word, sentence):
+    """Replace the target word with blanks in the sentence"""
+    import re
+    # 创建不区分大小写的正则表达式模式
+    pattern = re.compile(rf'\b{re.escape(word)}\b', re.IGNORECASE)
+    blanked = pattern.sub("_____", sentence)
+    return blanked
 
-    q = questions[0]  # 你也可以之后加 random.choice()
-
-    st.markdown(f"### Target word: **{q['word']}**")
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        subject = st.selectbox("Subject", q["subject"])
-    with col2:
-        adverb = st.selectbox("Adverb", q["adverb"])
-    with col3:
-        obj = st.selectbox("Object", q["object"])
-
-    sentence = f"{subject} {q['verb']} {obj} {adverb}."
-
-    st.markdown("### Your sentence:")
-    st.info(sentence)
-
-    if st.button("Check Answer"):
-        if (subject, adverb, obj) in q["correct"]:
-            st.success("✅ Great job! This sentence uses the word correctly.")
+def play_fill_blank_game():
+    """Streamlit version of Fill-in-the-Blank Game using Merriam-Webster API"""
+    st.subheader("Fill-in-the-Blank Game")
+    
+    # 获取用户单词
+    if "user_words" not in st.session_state or len(st.session_state.user_words) != 10:
+        st.warning("Please provide exactly 10 words first.")
+        return
+    
+    user_words = st.session_state.user_words.copy()
+    
+    # 初始化游戏状态
+    if "fb_index" not in st.session_state:
+        st.session_state.fb_index = 0
+        st.session_state.fb_score = 0
+        st.session_state.fb_answers = [""] * 10
+        st.session_state.fb_sentences = []
+        st.session_state.fb_options = []
+        
+        # 为每个单词获取例句
+        for word in user_words:
+            sentence = get_example_sentence_mw(word)
+            st.session_state.fb_sentences.append(sentence)
+        
+        # 为每个问题生成固定选项顺序
+        for i in range(len(user_words)):
+            options = user_words.copy()
+            random.shuffle(options)
+            st.session_state.fb_options.append(options)
+    
+    idx = st.session_state.fb_index
+    
+    # 检查游戏是否结束
+    if idx >= len(user_words):
+        # 游戏结束，显示结果
+        st.success(f"Game finished! Your score: {st.session_state.fb_score}/{len(user_words)}")
+        
+        # 创建结果表格
+        df = pd.DataFrame({
+            "Word": user_words,
+            "Example Sentence": st.session_state.fb_sentences,
+            "Your Answer": st.session_state.fb_answers,
+            "Correct?": [st.session_state.fb_answers[i] == user_words[i] for i in range(len(user_words))]
+        })
+        
+        st.subheader("Your Results")
+        st.table(df)
+        
+        # 重置按钮
+        if st.button("Play Again"):
+            # 重置游戏状态
+            st.session_state.fb_index = 0
+            st.session_state.fb_score = 0
+            st.session_state.fb_answers = [""] * 10
+            st.session_state.fb_sentences = []
+            st.session_state.fb_options = []
+            st.rerun()
+        return
+    
+    # 显示当前问题
+    current_word = user_words[idx]
+    current_sentence = st.session_state.fb_sentences[idx]
+    blanked_sentence = create_blank_sentence(current_word, current_sentence)
+    
+    st.write(f"**Question {idx + 1}/{len(user_words)}:**")
+    st.write(f"*{blanked_sentence}*")
+    
+    # 显示单词库
+    st.info(f"Word bank: {' | '.join(user_words)}")
+    
+    # 显示选项（固定顺序）
+    options = st.session_state.fb_options[idx]
+    
+    user_choice = st.radio(
+        "Choose the correct word:",
+        options=options,
+        key=f"fb_choice_{idx}"
+    )
+    
+    # 提交按钮
+    if st.button("Submit", key=f"fb_submit_{idx}"):
+        # 记录答案
+        st.session_state.fb_answers[idx] = user_choice
+        
+        # 检查答案
+        if user_choice.lower() == current_word.lower():
+            st.session_state.fb_score += 1
+            st.success(f"Correct! The word is '{current_word}'")
         else:
-            st.error("❌ This sentence is not appropriate in academic context.")
-            st.write("💡 Hint: Think about who usually conducts or analyzes things like studies or data.")
-
+            st.error(f"Incorrect. The correct word is '{current_word}'")
+        
+        # 显示完整句子
+        st.write(f"**Full sentence:** {current_sentence}")
+        
+        # 延迟后进入下一题
+        time.sleep(1.5)  # 给用户时间看结果
+        
+        # 进入下一题
+        st.session_state.fb_index += 1
+        st.rerun()
 
 # ------------------- Streamlit Design -------------------
 st.set_page_config(page_title="Vocabuddy", layout="centered")
@@ -384,7 +467,7 @@ if st.session_state.user_words and len(st.session_state.user_words) == 10:
     st.markdown("### 2. Choose a game and start")
     st.session_state.game_mode = st.selectbox(
         "Choose game mode",
-        ["Scrambled Letters Game", "Matching Game", "Listen & Choose", "Sentence Builder"],
+        ["Scrambled Letters Game", "Matching Game", "Listen & Choose", "Fill-in-the-Blank Game"],
         index=0
     )
 
@@ -508,8 +591,7 @@ if st.session_state.game_started and st.session_state.game_mode == "Listen & Cho
         st.session_state.listen_score = 0
         st.session_state.listen_answers = [""] * 10
 
-# ------------------- Sentence Builder -------------------
-if st.session_state.game_started and st.session_state.game_mode == "Sentence Builder":
-    sentence_builder_game()
-
+# ------------------- Fill-in-the-Blank  -------------------
+if st.session_state.game_started and st.session_state.game_mode == "Fill-in-the-Blank":
+    play_fill_blank_game()
 
