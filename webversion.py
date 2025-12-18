@@ -365,7 +365,7 @@ def play_fill_blank_game():
 
         for w in user_words:
             sentence = get_example_sentence_mw(w)
-            sentence = clean_mw_markup(sentence)
+            sentence = clean_html_tags(sentence)
             st.session_state.fb_sentences.append(sentence)
 
     idx = st.session_state.fb_index
