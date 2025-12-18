@@ -398,9 +398,6 @@ def play_fill_blank_game():
         # 显示完整句子
         st.write(f"**Full sentence:** {current_sentence}")
         
-        # 延迟后进入下一题
-        time.sleep(1.5)  # 给用户时间看结果
-        
         # 进入下一题
         st.session_state.fb_index += 1
         st.rerun()
