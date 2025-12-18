@@ -271,6 +271,19 @@ def play_matching_game():
 # ------------------- Merriam-Webster API -------------------
 MW_API_KEY = "b03334be-a55f-4416-9ff4-782b15a4dc77"  
 
+def clean_html_tags(text):
+    """Clean HTML-like tags from Merriam-Webster API response"""
+    import re
+    # 移除 {wi}...{/wi} 标签
+    text = re.sub(r'\{/?wi\}', '', text)
+    # 移除 {it}...{/it} 标签
+    text = re.sub(r'\{/?it\}', '', text)
+    # 移除其他常见标签
+    text = re.sub(r'\{/?[^}]+?\}', '', text)
+    # 清理多余的空格
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
 def get_example_sentence_mw(word):
     """
     Get example sentence from Merriam-Webster Collegiate API.
@@ -281,6 +294,7 @@ def get_example_sentence_mw(word):
         r = requests.get(url)
         data = r.json()
         if not data or not isinstance(data[0], dict):
+            # 使用清理后的默认句子
             return f"I like to {word} every day."
         defs = data[0].get("def", [])
         for d in defs:
@@ -292,117 +306,50 @@ def get_example_sentence_mw(word):
                         if item[0] == "vis":  # example sentences
                             vis_list = item[1]
                             if vis_list:
-                                return vis_list[0]["t"]
+                                raw_sentence = vis_list[0]["t"]
+                                # 清理HTML标签
+                                cleaned_sentence = clean_html_tags(raw_sentence)
+                                return cleaned_sentence
+        # 如果没有找到例句，返回清理后的默认句子
         return f"I like to {word} every day."
-    except:
+    except Exception as e:
+        # 打印错误信息用于调试
+        print(f"Error getting example sentence for {word}: {e}")
         return f"I like to {word} every day."
 
-    
 def create_blank_sentence(word, sentence):
     """Replace the target word with blanks in the sentence"""
     import re
-    # 创建不区分大小写的正则表达式模式
-    pattern = re.compile(rf'\b{re.escape(word)}\b', re.IGNORECASE)
-    blanked = pattern.sub("_____", sentence)
-    return blanked
-
-def play_fill_blank_game():
-    """Streamlit version of Fill-in-the-Blank Game using Merriam-Webster API"""
-    st.subheader("Fill-in-the-Blank Game")
     
-    # 获取用户单词
-    if "user_words" not in st.session_state or len(st.session_state.user_words) != 10:
-        st.warning("Please provide exactly 10 words first.")
-        return
+    # 确保句子已经清理过HTML标签
+    cleaned_sentence = clean_html_tags(sentence)
     
-    user_words = st.session_state.user_words.copy()
+    # 尝试不同的匹配策略
+    # 策略1：精确匹配（区分大小写）
+    if word in cleaned_sentence:
+        return cleaned_sentence.replace(word, "_____")
     
-    # 初始化游戏状态
-    if "fb_index" not in st.session_state:
-        st.session_state.fb_index = 0
-        st.session_state.fb_score = 0
-        st.session_state.fb_answers = [""] * 10
-        st.session_state.fb_sentences = []
-        st.session_state.fb_options = []
-        
-        # 为每个单词获取例句
-        for word in user_words:
-            sentence = get_example_sentence_mw(word) 
-            st.session_state.fb_sentences.append(sentence)
-        
-        # 为每个问题生成固定选项顺序
-        for i in range(len(user_words)):
-            options = user_words.copy()
-            random.shuffle(options)
-            st.session_state.fb_options.append(options)
+    # 策略2：不区分大小写的精确匹配
+    pattern_exact = re.compile(rf'\b{re.escape(word)}\b', re.IGNORECASE)
+    if pattern_exact.search(cleaned_sentence):
+        return pattern_exact.sub("_____", cleaned_sentence)
     
-    idx = st.session_state.fb_index
+    # 策略3：灵活匹配（处理复数、时态变化等）
+    # 例如：capture -> captures, captured
+    pattern_flexible = re.compile(rf'\b{re.escape(word)}[ds]?\b', re.IGNORECASE)
+    if pattern_flexible.search(cleaned_sentence):
+        return pattern_flexible.sub("_____", cleaned_sentence)
     
-    # 检查游戏是否结束
-    if idx >= len(user_words):
-        # 游戏结束，显示结果
-        st.success(f"Game finished! Your score: {st.session_state.fb_score}/{len(user_words)}")
-        
-        # 创建结果表格
-        df = pd.DataFrame({
-            "Word": user_words,
-            "Example Sentence": st.session_state.fb_sentences,
-            "Your Answer": st.session_state.fb_answers,
-            "Correct?": [st.session_state.fb_answers[i] == user_words[i] for i in range(len(user_words))]
-        })
-        
-        st.subheader("Your Results")
-        st.table(df)
-        
-        # 重置按钮
-        if st.button("Play Again"):
-            # 重置游戏状态
-            st.session_state.fb_index = 0
-            st.session_state.fb_score = 0
-            st.session_state.fb_answers = [""] * 10
-            st.session_state.fb_sentences = []
-            st.session_state.fb_options = []
-            st.rerun()
-        return
+    # 策略4：部分匹配（作为最后的手段）
+    # 在句子中查找单词的任何出现
+    if word.lower() in cleaned_sentence.lower():
+        # 找到单词在句子中的位置（不区分大小写）
+        start = cleaned_sentence.lower().find(word.lower())
+        end = start + len(word)
+        return cleaned_sentence[:start] + "_____" + cleaned_sentence[end:]
     
-    # 显示当前问题
-    current_word = user_words[idx]
-    current_sentence = st.session_state.fb_sentences[idx]
-    blanked_sentence = create_blank_sentence(current_word, current_sentence)
-    
-    st.write(f"**Question {idx + 1}/{len(user_words)}:**")
-    st.write(f"*{blanked_sentence}*")
-    
-    # 显示单词库
-    st.info(f"Word bank: {' | '.join(user_words)}")
-    
-    # 显示选项（固定顺序）
-    options = st.session_state.fb_options[idx]
-    
-    user_choice = st.radio(
-        "Choose the correct word:",
-        options=options,
-        key=f"fb_choice_{idx}"
-    )
-    
-    # 提交按钮
-    if st.button("Submit", key=f"fb_submit_{idx}"):
-        # 记录答案
-        st.session_state.fb_answers[idx] = user_choice
-        
-        # 检查答案
-        if user_choice.lower() == current_word.lower():
-            st.session_state.fb_score += 1
-            st.success(f"Correct! The word is '{current_word}'")
-        else:
-            st.error(f"Incorrect. The correct word is '{current_word}'")
-        
-        # 显示完整句子
-        st.write(f"**Full sentence:** {current_sentence}")
-        
-        # 进入下一题
-        st.session_state.fb_index += 1
-        st.rerun()
+    # 如果都没有匹配到，返回原始句子（这应该不会发生）
+    return cleaned_sentence
 
 # ------------------- Streamlit Design -------------------
 st.set_page_config(page_title="Vocabuddy", layout="centered")
