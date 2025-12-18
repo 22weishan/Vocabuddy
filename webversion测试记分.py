@@ -295,7 +295,7 @@ def get_example_sentence_mw(word):
         data = r.json()
         if not data or not isinstance(data[0], dict):
             # 使用清理后的默认句子
-            return f"I like to {word} every day."
+            return f"DEFAULT SENTECT: I LIKE TO {word} EVRY DAY."
         defs = data[0].get("def", [])
         for d in defs:
             sseq = d.get("sseq", [])
@@ -387,6 +387,11 @@ def create_blank_sentence(word, sentence):
 def play_fill_blank_game():
     st.subheader("Fill-in-the-Blank Game")
 
+    st.info(
+        'When no dictionary example is available, a default sentence will be used '
+        '(e.g. "I LIKE TO ___ EVERY DAY.").'
+    )
+    
     if "user_words" not in st.session_state or len(st.session_state.user_words) != 10:
         st.warning("Please provide exactly 10 words first.")
         return
