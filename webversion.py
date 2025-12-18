@@ -566,7 +566,7 @@ if st.session_state.user_words and len(st.session_state.user_words) == 10:
     )
 
     # Start Game button: also reset per-game session flags
-    if st.button("Start Game"):
+     if st.button("Start Game"):
     st.session_state.game_started = True
     original_words = st.session_state.user_words.copy()
     
