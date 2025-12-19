@@ -249,9 +249,9 @@ if st.button("Start Game"):
 
 # ______ 1. Listen & Choose (改进版) ______
 if st.session_state.get("game_started", False) and st.session_state.get("game_mode") == "Listen & Choose":
-        st.subheader("🎧 Listen & Choose Game")
+    st.subheader("🎧 Listen & Choose Game")
     
-    # 初始化游戏状态
+        # 初始化游戏状态
     if "Listen_index" not in st.session_state:
         st.session_state.Listen_index = 0
         st.session_state.Listen_score = 0
