@@ -251,13 +251,6 @@ if st.button("Start Game"):
 if st.session_state.get("game_started", False) and st.session_state.get("game_mode") == "Listen & Choose":
     st.subheader("🎧 Listen & Choose Game")
     
-        # 初始化游戏状态
-    if "Listen_index" not in st.session_state:
-        st.session_state.Listen_index = 0
-        st.session_state.Listen_score = 0
-        st.session_state.Listen_answers = [""] * 10
-        st.session_state.Listen_played_words = []  # 存储已播放的单词（顺序打乱）
-    
     # 获取当前索引和单词列表
     idx = st.session_state.Listen_index
     user_words = st.session_state.listen_words  # 使用专门为听音游戏准备的单词列表
