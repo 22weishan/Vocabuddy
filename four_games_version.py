@@ -1082,3 +1082,6 @@ if st.session_state.game_started and st.session_state.game_mode == "Matching Gam
 # ------------------- Fill-in-the-Blank  -------------------
 if st.session_state.game_started and st.session_state.game_mode == "Fill-in-the-Blank Game":
     play_fill_blank_game()
+# ------------------- Scrambled Letters Game -------------------
+if st.session_state.get("game_started", False) and st.session_state.get("game_mode") == "Scrambled Letters Game":
+    play_scrambled_game()
