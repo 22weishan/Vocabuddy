@@ -564,12 +564,19 @@ def play_spelling_game():
         # 字母输入（居中对齐）
         st.markdown("---")
         
-        # 使用form来实现按Enter键提交
+        # 使用一个标志来跟踪是否需要清空输入框
+        if f"clear_input_{idx}" not in st.session_state:
+            st.session_state[f"clear_input_{idx}"] = False
+        
+        # 创建表单用于Enter键提交
         with st.form(key=f"spelling_form_{idx}"):
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
+                # 如果设置了清空标志，使用空值
+                input_value = "" if st.session_state.get(f"clear_input_{idx}", False) else ""
                 user_input = st.text_input(
                     "Enter letters and press Enter:",
+                    value=input_value,
                     key=f"spelling_input_{idx}",
                     placeholder="Type letters here...",
                     max_chars=10,
@@ -579,14 +586,16 @@ def play_spelling_game():
             # 居中的提交按钮
             submitted = st.form_submit_button("🔤 Check Letters", use_container_width=False)
             
-            if submitted or (user_input and st.session_state.get(f"form_submitted_{idx}", False)):
+            if submitted and user_input:
                 # 处理用户输入
-                if user_input:
-                    process_spelling_input(idx, user_input)
-                    # 清空输入框
-                    st.session_state[f"spelling_input_{idx}"] = ""
-                    st.session_state[f"form_submitted_{idx}"] = False
+                process_spelling_input(idx, user_input)
+                # 设置清空标志
+                st.session_state[f"clear_input_{idx}"] = True
                 st.rerun()
+        
+        # 提交后重置清空标志
+        if st.session_state.get(f"clear_input_{idx}", False):
+            st.session_state[f"clear_input_{idx}"] = False
         
         # 如果单词已完成，显示完成信息和Next按钮
         if current_word_data["completed"]:
@@ -671,118 +680,7 @@ def process_spelling_input(idx, user_input):
         # 如果达到错误上限，提示
         if word_data["wrong_count"] >= 5:
             st.error("⚠️ You've reached the maximum wrong attempts!")
-
-def show_spelling_results():
-    """显示拼写游戏的结果"""
-    st.balloons()
-    total_words = len(st.session_state.spelling_words)
-    score = st.session_state.spelling_score
     
-    st.success(f"🎮 Game Finished! Your score: **{score}/{total_words}**")
-    
-    # 创建详细结果表格
-    df_data = []
-    for i, word_data in enumerate(st.session_state.spelling_progress):
-        word = word_data["word"]
-        completed = word_data["completed"]
-        wrong_count = word_data["wrong_count"]
-        attempted_count = len(word_data["attempted_letters"])
-        
-        df_data.append({
-            "Word": word.upper(),
-            "Status": "✅ Completed" if completed else "❌ Failed",
-            "Wrong Attempts": wrong_count,
-            "Letters Attempted": attempted_count,
-            "Score": "1" if completed else "0"
-        })
-    
-    df = pd.DataFrame(df_data)
-    
-    # 显示结果表格
-    st.subheader("📊 Your Results")
-    st.dataframe(
-        df,
-        column_config={
-            "Word": "Word",
-            "Status": "Result",
-            "Wrong Attempts": st.column_config.NumberColumn(
-                "Wrong Attempts",
-                help="Number of wrong letter attempts"
-            ),
-            "Letters Attempted": st.column_config.NumberColumn(
-                "Letters Tried",
-                help="Total letters attempted"
-            ),
-            "Score": st.column_config.NumberColumn(
-                "Points",
-                help="1 point for correct, 0 for failed"
-            )
-        },
-        hide_index=True,
-        use_container_width=True
-    )
-    
-    # 显示统计信息
-    accuracy = (score / total_words) * 100
-    avg_wrong = sum([d["wrong_count"] for d in st.session_state.spelling_progress]) / total_words
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Total Score", f"{score}/{total_words}")
-    with col2:
-        st.metric("Accuracy", f"{accuracy:.1f}%")
-    with col3:
-        st.metric("Avg Wrong Attempts", f"{avg_wrong:.1f}")
-    
-    # 性能评价
-    st.markdown("---")
-    if accuracy >= 80:
-        performance = "🏆 Excellent Spelling Skills!"
-    elif accuracy >= 60:
-        performance = "👍 Good Job!"
-    else:
-        performance = "📚 Keep Practicing!"
-    
-    st.markdown(f"### {performance}")
-    
-    # 添加三个按钮（与其他游戏一致）
-    st.markdown("---")
-    st.write("### What would you like to do next?")
-    col1, col2, col3 = st.columns([1, 1, 1])
-    
-    with col1:
-        if st.button("🔄 Play Again", 
-                    use_container_width=True,
-                    help="Play the same game again with new random order"):
-            reset_spelling_game()
-            st.rerun()
-    
-    with col2:
-        if st.button("🎮 Try Another Game", 
-                    use_container_width=True,
-                    help="Go back to choose a different game mode"):
-            st.session_state.game_started = False
-            st.rerun()
-    
-    with col3:
-        if st.button("🏠 Main Menu", 
-                    use_container_width=True,
-                    help="Return to the main menu"):
-            st.session_state.game_started = False
-            st.session_state.game_mode = None
-            # 清理拼写游戏状态
-            for key in ["spelling_index", "spelling_score", "spelling_words", "spelling_progress"]:
-                if key in st.session_state:
-                    del st.session_state[key]
-            st.rerun()
-
-def reset_spelling_game():
-    """重置拼写游戏状态"""
-    st.session_state.spelling_index = 0
-    st.session_state.spelling_score = 0
-    st.session_state.spelling_words = []
-    st.session_state.spelling_progress = []
-
 # ------------------- 3. Matching Game helpers -------------------
 def generate_matching_game_once(user_words):
     """
