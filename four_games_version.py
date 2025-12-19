@@ -501,52 +501,41 @@ def play_spelling_game():
         # 游戏界面
         st.info(f"📝 Word {idx + 1} of {len(st.session_state.spelling_words)}")
         
-        # 音频播放
-        audio_file = generate_tts_audio(current_word)
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            st.audio(audio_file, format="audio/mp3")
-        with col2:
-            if st.button("🔁 Replay Audio", key=f"replay_spelling_{idx}"):
-                st.rerun()
-        
         # 游戏说明
-        st.markdown("""
+        st.info("""
         **游戏说明:**
         - 🎧 点击播放按钮听单词发音
-        - 🔤 在下方输入框中输入你听到的字母
+        - 🔤 输入你听到的字母，按Enter键检查
         - ✅ 正确的字母会自动出现在对应位置
-        - ❌ 错误的字母会记录在错误列表中
+        - ❌ 错误的字母会记录在下方
         - ⚠️ 每个单词最多有5次错误机会
+        - 💡 错误3次后会有提示
         """)
         
-        # 显示单词空格
+        # 音频播放（居中对齐）
+        audio_file = generate_tts_audio(current_word)
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.audio(audio_file, format="audio/mp3")
+        
+        # 显示单词空格（居中对齐，放大字号）
         display_word = ""
         for i, letter in enumerate(current_word):
             if current_word_data["revealed"][i]:
                 display_word += f"**{letter.upper()}** "
             else:
-                display_word += "_ "
+                display_word += "___ "
         
-        st.markdown(f"### {display_word}")
+        # 使用HTML样式让单词居中并放大
+        st.markdown(f"""
+        <div style="text-align: center; margin: 30px 0;">
+            <h1 style="font-size: 48px; letter-spacing: 10px; font-weight: bold;">
+                {display_word}
+            </h1>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # 显示进度条和统计
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Remaining Attempts", f"{5 - current_word_data['wrong_count']}/5")
-        with col2:
-            revealed_count = sum(current_word_data["revealed"])
-            total_letters = len(current_word)
-            st.metric("Letters Found", f"{revealed_count}/{total_letters}")
-        with col3:
-            if current_word_data["wrong_count"] >= 3 and not current_word_data["hint_given"]:
-                st.warning("💡 Need a hint?")
-        
-        # 进度条
-        progress = current_word_data["wrong_count"] / 5
-        st.progress(progress, text=f"Wrong attempts: {current_word_data['wrong_count']}/5")
-        
-        # 显示已尝试的字母
+        # 显示已尝试的字母和错误字母列表
         if current_word_data["attempted_letters"]:
             attempted_display = []
             for letter in sorted(current_word_data["attempted_letters"]):
@@ -572,45 +561,61 @@ def play_spelling_game():
                     st.info(f"💡 The word contains these vowels: {', '.join(vowels_in_word).upper()}")
                 current_word_data["hint_given"] = True
         
-        # 字母输入
+        # 字母输入（居中对齐）
         st.markdown("---")
-        col1, col2 = st.columns([3, 1])
         
-        with col1:
-            user_input = st.text_input(
-                "Enter a letter (or multiple letters):",
-                key=f"spelling_input_{idx}",
-                placeholder="Type letters here...",
-                max_chars=10
-            ).lower()
-        
-        with col2:
-            submit_disabled = not user_input
-            if st.button("🔤 Check Letters", 
-                        key=f"check_spelling_{idx}",
-                        disabled=submit_disabled,
-                        use_container_width=True):
+        # 使用form来实现按Enter键提交
+        with st.form(key=f"spelling_form_{idx}"):
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                user_input = st.text_input(
+                    "Enter letters and press Enter:",
+                    key=f"spelling_input_{idx}",
+                    placeholder="Type letters here...",
+                    max_chars=10,
+                    label_visibility="collapsed"
+                ).lower()
+            
+            # 居中的提交按钮
+            submitted = st.form_submit_button("🔤 Check Letters", use_container_width=False)
+            
+            if submitted or (user_input and st.session_state.get(f"form_submitted_{idx}", False)):
                 # 处理用户输入
-                process_spelling_input(idx, user_input)
+                if user_input:
+                    process_spelling_input(idx, user_input)
+                    # 清空输入框
+                    st.session_state[f"spelling_input_{idx}"] = ""
+                    st.session_state[f"form_submitted_{idx}"] = False
+                st.rerun()
         
         # 如果单词已完成，显示完成信息和Next按钮
         if current_word_data["completed"]:
             st.success(f"🎉 Congratulations! You spelled **'{current_word.upper()}'** correctly!")
             
-            if st.button("➡️ Next Word", 
-                        key=f"next_spelling_{idx}",
-                        use_container_width=True):
-                st.session_state.spelling_index += 1
-                st.rerun()
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                if st.button("➡️ Next Word", 
+                            key=f"next_spelling_{idx}",
+                            use_container_width=True):
+                    st.session_state.spelling_index += 1
+                    st.rerun()
         
         # 如果错误次数达到上限，自动跳转
         if current_word_data["wrong_count"] >= 5 and not current_word_data["completed"]:
             st.error(f"❌ Maximum attempts reached. The word was **'{current_word.upper()}'**")
-            if st.button("➡️ Skip to Next Word", 
-                        key=f"skip_spelling_{idx}",
-                        use_container_width=True):
-                st.session_state.spelling_index += 1
-                st.rerun()
+            
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                if st.button("➡️ Skip to Next Word", 
+                            key=f"skip_spelling_{idx}",
+                            use_container_width=True):
+                    st.session_state.spelling_index += 1
+                    st.rerun()
+        
+        # 进度条放在底部
+        st.markdown("---")
+        progress = current_word_data["wrong_count"] / 5
+        st.progress(progress, text=f"Wrong attempts: {current_word_data['wrong_count']}/5")
 
 def process_spelling_input(idx, user_input):
     """处理用户输入的字母"""
@@ -666,8 +671,6 @@ def process_spelling_input(idx, user_input):
         # 如果达到错误上限，提示
         if word_data["wrong_count"] >= 5:
             st.error("⚠️ You've reached the maximum wrong attempts!")
-    
-    st.rerun()
 
 def show_spelling_results():
     """显示拼写游戏的结果"""
