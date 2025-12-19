@@ -118,6 +118,42 @@ def baidu_translate(q, from_lang="auto", to_lang="zh"):
     except Exception:
         return q
 
+# ------------------- Reading files -------------------
+def read_file(file):
+    """Read words from txt/csv/docx/pdf file-like object (Streamlit UploadFile)."""
+    words = []
+    name = file.name.lower()
+    try:
+        if name.endswith((".txt", ".csv")):
+            content = file.read().decode("utf-8", errors="ignore")
+            words = content.split()
+        elif name.endswith(".docx"):
+            doc = docx.Document(io.BytesIO(file.read()))
+            for para in doc.paragraphs:
+                words += para.text.split()
+        elif name.endswith(".pdf"):
+            reader = PyPDF2.PdfReader(io.BytesIO(file.read()))
+            for page in reader.pages:
+                text = page.extract_text()
+                if text:
+                    words += text.split()
+    except Exception:
+        return []
+    return [w.strip() for w in words if w.strip()]
+
+# ------------------- reading from images -------------------
+def read_image(image_file):
+    """Run OCR via pytesseract; return list of words. If OCR fails, return []."""
+    try:
+        img = Image.open(io.BytesIO(image_file.read()))
+        text = pytesseract.image_to_string(img)
+        words = [w.strip() for w in text.split() if w.strip()]
+        return words
+    except UnidentifiedImageError:
+        return []
+    except Exception:
+        return []
+
 # ------------------- Streamlit Design -------------------
 st.set_page_config(page_title="Vocabuddy", layout="centered")
 st.title("Hi, Welcome to Vocabuddy")
@@ -1021,47 +1057,7 @@ if "scramble_scrambled" not in st.session_state:
 # translation cache
 if "translation_cache" not in st.session_state:
     st.session_state.translation_cache = {}
-
-# ------------------- Reading files -------------------
-def read_file(file):
-    """Read words from txt/csv/docx/pdf file-like object (Streamlit UploadFile)."""
-    words = []
-    name = file.name.lower()
-    try:
-        if name.endswith((".txt", ".csv")):
-            # UploadFile.read() returns bytes
-            content = file.read().decode("utf-8", errors="ignore")
-            words = content.split()
-        elif name.endswith(".docx"):
-            # docx.Document accepts a path or a file-like object (works in-memory)
-            doc = docx.Document(io.BytesIO(file.read()))
-            for para in doc.paragraphs:
-                words += para.text.split()
-        elif name.endswith(".pdf"):
-            reader = PyPDF2.PdfReader(io.BytesIO(file.read()))
-            for page in reader.pages:
-                text = page.extract_text()
-                if text:
-                    words += text.split()
-    except Exception:
-        # if any error reading, return empty list (caller can show warning)
-        return []
-    return [w.strip() for w in words if w.strip()]
-
-# ------------------- reading from images -------------------
-def read_image(image_file):
-    """Run OCR via pytesseract; return list of words. If OCR fails, return []."""
-    try:
-        # image_file is UploadFile; use BytesIO
-        img = Image.open(io.BytesIO(image_file.read()))
-        text = pytesseract.image_to_string(img)
-        words = [w.strip() for w in text.split() if w.strip()]
-        return words
-    except UnidentifiedImageError:
-        return []
-    except Exception:
-        # If pytesseract or tesseract binary is missing, return []
-        return []
+    
 # ------------------- Matching Game -------------------
 if st.session_state.game_started and st.session_state.game_mode == "Matching Game":
     play_matching_game()    
