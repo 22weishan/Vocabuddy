@@ -11,173 +11,6 @@ import io
 from gtts import gTTS
 import os
 
-# ============ 卡片选择CSS样式 ============
-def inject_custom_css():
-    st.markdown("""
-    <style>
-    /* 卡片网格容器 */
-    .cards-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 25px;
-        margin: 20px 0;
-    }
-    
-    /* 卡片样式 */
-    .game-card {
-        background: white;
-        border-radius: 12px;
-        padding: 20px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-        border: 2px solid transparent;
-        transition: all 0.3s ease;
-        text-align: center;
-        min-height: 280px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        position: relative;
-    }
-    
-    .game-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
-        border-color: #E5E7EB;
-    }
-    
-    .game-card.selected {
-        border-color: #3B82F6;
-        background: #F0F9FF;
-    }
-    
-    /* 卡片图标 */
-    .card-icon {
-        font-size: 3rem;
-        margin-bottom: 15px;
-    }
-    
-    /* 卡片标题 */
-    .card-title-en {
-        font-size: 1.2rem;
-        font-weight: 600;
-        color: #1F2937;
-        margin-bottom: 5px;
-    }
-    
-    .card-title-cn {
-        font-size: 1rem;
-        color: #4B5563;
-        margin-bottom: 15px;
-    }
-    
-    /* 能力标签 */
-    .ability-tag {
-        display: inline-block;
-        padding: 6px 16px;
-        color: white;
-        border-radius: 20px;
-        font-weight: 600;
-        margin: 10px 0 20px 0;
-    }
-    
-    .ability-tag.sound { background: #3B82F6; }
-    .ability-tag.form { background: #10B981; }
-    .ability-tag.meaning { background: #8B5CF6; }
-    .ability-tag.usage { background: #F59E0B; }
-    
-    /* 卡片描述 */
-    .card-description {
-        color: #6B7280;
-        font-size: 0.9rem;
-        line-height: 1.4;
-        flex-grow: 1;
-    }
-    
-    /* 当前选择指示器 */
-    .selected-indicator {
-        position: absolute;
-        top: 15px;
-        right: 15px;
-        background: #10B981;
-        color: white;
-        width: 22px;
-        height: 22px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.8rem;
-        font-weight: bold;
-    }
-    
-    /* 卡片颜色主题 */
-    .card-sound { border-top: 4px solid #3B82F6; }
-    .card-form { border-top: 4px solid #10B981; }
-    .card-meaning { border-top: 4px solid #8B5CF6; }
-    .card-usage { border-top: 4px solid #F59E0B; }
-    </style>
-    """, unsafe_allow_html=True)
-
-# ============ 游戏卡片数据 ============
-def get_game_cards_data():
-    return [
-        {
-            "id": "listen",
-            "en_name": "Listen & Choose",
-            "cn_name": "听音辨词",
-            "ability": "音",
-            "ability_class": "sound",
-            "icon": "🎧",
-            "color_class": "card-sound",
-            "description": "通过听力识别单词，训练发音记忆",
-            "difficulty": "★☆☆☆☆",
-            "duration": "3-5分钟",
-            "suitable_for": "听力训练、发音纠正",
-            "mode_value": "Listen & Choose"
-        },
-        {
-            "id": "spelling",
-            "en_name": "Spelling Game",
-            "cn_name": "拼写游戏",
-            "ability": "形",
-            "ability_class": "form",
-            "icon": "✏️",
-            "color_class": "card-form",
-            "description": "根据发音拼写单词，强化字母记忆",
-            "difficulty": "★★★☆☆",
-            "duration": "5-8分钟",
-            "suitable_for": "拼写训练、字母记忆",
-            "mode_value": "Spelling Game"
-        },
-        {
-            "id": "matching",
-            "en_name": "Matching Game",
-            "cn_name": "词义配对",
-            "ability": "义",
-            "ability_class": "meaning",
-            "icon": "🔤",
-            "color_class": "card-meaning",
-            "description": "匹配英文与中文释义，加深词义理解",
-            "difficulty": "★★☆☆☆",
-            "duration": "4-6分钟",
-            "suitable_for": "词汇记忆、翻译理解",
-            "mode_value": "Matching Game"
-        },
-        {
-            "id": "fillblank",
-            "en_name": "Fill-in-the-Blank",
-            "cn_name": "语境填空",
-            "ability": "用",
-            "ability_class": "usage",
-            "icon": "📝",
-            "color_class": "card-usage",
-            "description": "在真实语境中使用单词，学习应用场景",
-            "difficulty": "★★★★☆",
-            "duration": "6-10分钟",
-            "suitable_for": "语法学习、语境应用",
-            "mode_value": "Fill-in-the-Blank Game"
-        }
-    ]
 # ============ initialization: session_state ============
 ''' initialize four games'''
 
@@ -355,93 +188,53 @@ if st.session_state.user_words:
         st.warning("Please provide exactly 10 words to play (you can enter/upload more and then edit).")
         
 # ------------------- choose game mode -------------------
-# ==================== 卡片式游戏选择界面 ====================
-if st.session_state.user_words and len(st.session_state.user_words) >= 10:
+# ------------------- 卡片式游戏选择 -------------------
+if st.session_state.user_words and len(st.session_state.user_words) == 10:
     st.markdown("### 2. 选择游戏模式")
     
-    # 注入CSS样式
-    inject_custom_css()
+    # 简单的四个按钮代替下拉框
+    col1, col2, col3, col4 = st.columns(4)
     
-    # 获取卡片数据
-    cards_data = get_game_cards_data()
+    with col1:
+        if st.button("🎧 听音辨词", use_container_width=True, 
+                    type="primary" if st.session_state.get("game_mode") == "Listen & Choose" else "secondary"):
+            st.session_state.game_mode = "Listen & Choose"
+            st.rerun()
     
-    # 当前选择的游戏模式
-    current_mode = st.session_state.get("game_mode", None)
+    with col2:
+        if st.button("✏️ 拼写游戏", use_container_width=True,
+                    type="primary" if st.session_state.get("game_mode") == "Spelling Game" else "secondary"):
+            st.session_state.game_mode = "Spelling Game"
+            st.rerun()
     
-    # 创建卡片网格
-    cols = st.columns(4)
-    for i, card in enumerate(cards_data):
-        with cols[i]:
-            # 卡片容器
-            card_class = f"game-card {card['color_class']}"
-            if current_mode == card["mode_value"]:
-                card_class += " selected"
-            
-            card_html = f"""
-            <div class="{card_class}">
-                {f'<div class="selected-indicator">✓</div>' if current_mode == card["mode_value"] else ''}
-                <div class="card-icon">{card['icon']}</div>
-                <div class="card-title-en">{card['en_name']}</div>
-                <div class="card-title-cn">{card['cn_name']}</div>
-                <div class="ability-tag {card['ability_class']}">【{card['ability']}】</div>
-                <div class="card-description">{card['description']}</div>
-            </div>
-            """
-            st.markdown(card_html, unsafe_allow_html=True)
-            
-            # 选择按钮
-            is_selected = current_mode == card["mode_value"]
-            button_text = "✅ 已选择" if is_selected else "选择此游戏"
-            if st.button(
-                button_text,
-                key=f"select_{card['id']}",
-                type="primary" if is_selected else "secondary",
-                use_container_width=True
-            ):
-                st.session_state.game_mode = card["mode_value"]
-                st.rerun()
+    with col3:
+        if st.button("🔤 词义配对", use_container_width=True,
+                    type="primary" if st.session_state.get("game_mode") == "Matching Game" else "secondary"):
+            st.session_state.game_mode = "Matching Game"
+            st.rerun()
     
-    # 显示当前选择和游戏详情
-    if current_mode:
-        selected_card = next((c for c in cards_data if c["mode_value"] == current_mode), None)
-        if selected_card:
-            st.markdown("---")
-            col1, col2 = st.columns([2, 1])
-            
-            with col1:
-                st.markdown(f"""
-                **已选择游戏：** `{selected_card['cn_name']}` ({selected_card['en_name']})
-                
-                **训练重点：** 单词的【{selected_card['ability']}】能力  
-                **适合：** {selected_card['suitable_for']}  
-                **难度：** {selected_card['difficulty']}  
-                **预计时长：** {selected_card['duration']}
-                """)
-            
-            with col2:
-                # 开始游戏按钮保持原样
-                if st.button("🚀 开始游戏", use_container_width=True, type="primary"):
-                    # 这里保留你原来的Start Game按钮逻辑
-                    st.session_state.game_started = True
-                    original_words = st.session_state.user_words.copy()
-                    
-                    # 为各个游戏创建单词列表副本（保持你原来的初始化代码）
-                    st.session_state.scramble_words = original_words.copy()
-                    random.shuffle(st.session_state.scramble_words)
-                    
-                    st.session_state.matching_words = original_words.copy()
-                    st.session_state.listen_words = original_words.copy()  
-                    st.session_state.fill_blank_words = original_words.copy()
-                    
-                    # 重置各个游戏状态（保持你原来的重置代码）
-                    # ... 你的原有重置代码 ...
-                    
-                    st.rerun()
-    else:
-        st.info("👆 请选择一个游戏模式")
+    with col4:
+        if st.button("📝 语境填空", use_container_width=True,
+                    type="primary" if st.session_state.get("game_mode") == "Fill-in-the-Blank Game" else "secondary"):
+            st.session_state.game_mode = "Fill-in-the-Blank Game"
+            st.rerun()
+    
+    # 显示当前选择
+    if st.session_state.game_mode:
+        mode_display = {
+            "Listen & Choose": "🎧 听音辨词",
+            "Spelling Game": "✏️ 拼写游戏", 
+            "Matching Game": "🔤 词义配对",
+            "Fill-in-the-Blank Game": "📝 语境填空"
+        }
+        st.info(f"已选择: {mode_display.get(st.session_state.game_mode, st.session_state.game_mode)}")
+        
+if st.button("Start Game"):
+    st.session_state.game_started = True
+    original_words = st.session_state.user_words.copy()
     
     # 为各个游戏创建单词列表副本
-    st.session_state.scramble_words = st.session_state.user_words.copy()
+    st.session_state.scramble_words = original_words.copy()
     random.shuffle(st.session_state.scramble_words)
     
     st.session_state.matching_words = original_words.copy()
@@ -1963,5 +1756,3 @@ if st.session_state.game_started and st.session_state.game_mode == "Fill-in-the-
 # =================== 新增：Spelling Game调用 ===================
 if st.session_state.get("game_started", False) and st.session_state.get("game_mode") == "Spelling Game":
     play_spelling_game()
-
-
