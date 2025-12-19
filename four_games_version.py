@@ -798,88 +798,347 @@ def reset_spelling_game():
     st.session_state.spelling_words = []
     st.session_state.spelling_progress = []
                                 
-# ------------------- 3. Matching Game helpers -------------------
-def generate_matching_game_once(user_words):
-    """
-    Generate (and translate) only once. Returns en_shuffled, cn_shuffled, mapping.
-    This function DOES NOT change session_state; caller should store results.
-    """
-    word_en = []
-    word_cn = []
-    mapping = {}
-    for w in user_words:
-        # use cached translations if available (session_state)
-        if "translation_cache" in st.session_state and w in st.session_state.translation_cache:
-            cn = st.session_state.translation_cache[w]
-        else:
-            cn = baidu_translate(w)
-            # cache it locally
-            if "translation_cache" not in st.session_state:
-                st.session_state.translation_cache = {}
-            st.session_state.translation_cache[w] = cn
-        word_en.append(w)
-        word_cn.append(cn)
-        mapping[w] = cn
-    en_shuffled = word_en[:]
-    cn_shuffled = word_cn[:]
-    random.shuffle(en_shuffled)
-    random.shuffle(cn_shuffled)
-    return en_shuffled, cn_shuffled, mapping
-
+# ------------------- 3. Matching Game (优化版) -------------------
 def prepare_matching_game():
-    """Ensure matching game data exists in session_state (generate once per Start Game)."""
+    """初始化匹配游戏数据"""
     if st.session_state.get("game_started", False) and st.session_state.get("game_mode") == "Matching Game":
         if not st.session_state.get("matching_words_generated", False):
-            en_list, cn_list, mapping = generate_matching_game_once(st.session_state.user_words)
-            st.session_state.en_list = en_list
-            st.session_state.cn_list = cn_list
-            st.session_state.mapping = mapping
-            st.session_state.matching_answers = {w: "Select" for w in en_list}
+            # 生成英文和中文列表
+            word_en = st.session_state.user_words.copy()
+            word_cn = []
+            mapping = {}
+            
+            # 翻译所有单词
+            st.info("⏳ Translating words...")
+            progress_bar = st.progress(0)
+            
+            for i, w in enumerate(word_en):
+                if w in st.session_state.translation_cache:
+                    cn = st.session_state.translation_cache[w]
+                else:
+                    cn = baidu_translate(w)
+                    st.session_state.translation_cache[w] = cn
+                word_cn.append(cn)
+                mapping[w] = cn
+                progress_bar.progress((i + 1) / len(word_en))
+            
+            progress_bar.empty()
+            
+            # 打乱顺序
+            en_shuffled = word_en.copy()
+            cn_shuffled = word_cn.copy()
+            random.shuffle(en_shuffled)
+            random.shuffle(cn_shuffled)
+            
+            # 存储到 session_state
+            st.session_state.matching_en_list = en_shuffled
+            st.session_state.matching_cn_list = cn_shuffled
+            st.session_state.matching_mapping = mapping
+            st.session_state.matching_current_index = 0
+            st.session_state.matching_score = 0
+            st.session_state.matching_answers = [None] * len(word_en)
+            st.session_state.matching_submitted = False
+            st.session_state.matching_finished = False
             st.session_state.matching_words_generated = True
+            st.session_state.matching_waiting_for_next = False
 
 def play_matching_game():
+    """玩匹配游戏 - 优化版界面"""
     prepare_matching_game()
-    en_list = st.session_state.en_list
-    cn_list = st.session_state.cn_list
-    mapping = st.session_state.mapping
+    
+    if not st.session_state.get("matching_words_generated", False):
+        return
+    
+    st.subheader("🔤 Matching Game - Match English with Chinese")
+    
+    # 游戏说明
+    with st.expander("ℹ️ Game Instructions", expanded=False):
+        st.markdown("""
+        - 📖 Match each English word with its correct Chinese translation
+        - 🔄 English words are in a fixed order on the left
+        - 🔀 Chinese translations are shuffled on the right
+        - ✅ Select one Chinese meaning for each English word
+        - ⏱️ Complete all matches before submitting
+        """)
+    
+    # 获取当前状态
+    idx = st.session_state.matching_current_index
+    en_list = st.session_state.matching_en_list
+    cn_list = st.session_state.matching_cn_list
+    mapping = st.session_state.matching_mapping
+    total_words = len(en_list)
+    
+    # 如果游戏未完成，显示当前题目
+    if not st.session_state.get("matching_finished", False):
+        # 显示当前进度
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            st.info(f"🔤 Word {idx + 1} of {total_words}")
+        
+        # 当前英文单词
+        current_en_word = en_list[idx]
+        
+        st.markdown(f"""
+        <div style="text-align: center; margin: 20px 0 30px 0;">
+            <h2 style="font-size: 32px; color: #2E86C1; font-weight: bold;">
+                {current_en_word}
+            </h2>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("### Select the correct Chinese meaning:")
+        
+        # 显示所有中文选项（分为两列）
+        cols = st.columns(2)
+        selected_cn = st.session_state.matching_answers[idx]
+        
+        # 将中文选项分配到两列
+        for i, cn_word in enumerate(cn_list):
+            col_idx = i % 2
+            with cols[col_idx]:
+                is_selected = selected_cn == cn_word
+                button_type = "primary" if is_selected else "secondary"
+                
+                if st.button(
+                    cn_word,
+                    key=f"match_cn_{idx}_{i}",
+                    use_container_width=True,
+                    type=button_type
+                ):
+                    st.session_state.matching_answers[idx] = cn_word
+                    st.rerun()
+        
+        # 显示当前选择
+        if selected_cn:
+            st.markdown(f"**Your current selection:** `{selected_cn}`")
+        
+        # 提交按钮和导航按钮
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # 检查是否可以提交当前答案
+            submit_disabled = st.session_state.matching_answers[idx] is None
+            
+            if st.button("✅ Submit Answer", 
+                        key=f"match_submit_{idx}", 
+                        disabled=submit_disabled,
+                        use_container_width=True):
+                # 保存当前答案
+                user_choice = st.session_state.matching_answers[idx]
+                correct_cn = mapping.get(current_en_word, "")
+                
+                # 立即反馈
+                if user_choice == correct_cn:
+                    st.success(f"✅ Correct! **'{current_en_word}'** means **'{correct_cn}'**")
+                else:
+                    st.error(f"❌ Wrong. **'{current_en_word}'** means **'{correct_cn}'**, not **'{user_choice}'**")
+                
+                # 等待下一题
+                st.session_state.matching_waiting_for_next = True
+        
+        # 如果等待下一题，显示Next按钮
+        if st.session_state.get("matching_waiting_for_next", False):
+            with col2:
+                if st.button("➡️ Next Word", 
+                            key=f"match_next_{idx}", 
+                            use_container_width=True):
+                    # 移动到下一题
+                    if idx < total_words - 1:
+                        st.session_state.matching_current_index += 1
+                    else:
+                        # 最后一题完成，计算总分
+                        calculate_matching_score()
+                        st.session_state.matching_finished = True
+                    
+                    st.session_state.matching_waiting_for_next = False
+                    st.rerun()
+        
+        # 进度条
+        progress = (idx + 1) / total_words
+        st.progress(progress, text=f"Progress: {idx + 1}/{total_words}")
+        
+        # 显示快速跳转按钮（可选）
+        if total_words > 5:
+            st.markdown("---")
+            st.write("**Quick Navigation:**")
+            
+            # 创建一行按钮，每行最多5个
+            max_buttons_per_row = 5
+            for start in range(0, total_words, max_buttons_per_row):
+                end = min(start + max_buttons_per_row, total_words)
+                cols = st.columns(end - start)
+                
+                for i in range(start, end):
+                    col_idx = i - start
+                    with cols[col_idx]:
+                        button_text = f"🔤 {i+1}"
+                        button_type = "primary" if i == idx else "secondary"
+                        
+                        if st.button(
+                            button_text,
+                            key=f"nav_{i}",
+                            use_container_width=True,
+                            type=button_type
+                        ):
+                            st.session_state.matching_current_index = i
+                            st.session_state.matching_waiting_for_next = False
+                            st.rerun()
+    
+    else:
+        # 游戏完成，显示结果
+        show_matching_results()
 
-    st.subheader("Match English words with their Chinese meaning")
+def calculate_matching_score():
+    """计算匹配游戏总分"""
+    en_list = st.session_state.matching_en_list
+    mapping = st.session_state.matching_mapping
+    answers = st.session_state.matching_answers
+    
+    score = 0
+    for i, en_word in enumerate(en_list):
+        correct_cn = mapping.get(en_word, "")
+        user_answer = answers[i]
+        if user_answer == correct_cn:
+            score += 1
+    
+    st.session_state.matching_score = score
 
-    # Build selectboxes — keys must be stable
-    for en_word in en_list:
-        current_choice = st.session_state.matching_answers.get(en_word, "Select")
-        # 不使用 on_change 或 rerun
-        sel = st.selectbox(
-            f"{en_word} ->",
-            options=["Select"] + cn_list,
-            index=(0 if current_choice not in (["Select"] + cn_list) else (["Select"] + cn_list).index(current_choice)),
-            key=f"matching_{en_word}"
-        )
-        # 保存选择状态到 session_state
-        st.session_state.matching_answers[en_word] = sel
-
-    st.markdown("---")
-    if st.button("✅ Submit Matching Game"):
-        score = 0
-        for w in en_list:
-            if st.session_state.matching_answers.get(w) == mapping.get(w):
-                score += 1
-        st.success(f"You scored: {score}/{len(en_list)}")
-        st.session_state.matching_score = score
-
-        df = pd.DataFrame({
-            "Word": en_list,
-            "Correct Meaning": [mapping[w] for w in en_list],
-            "Your Answer": [st.session_state.matching_answers[w] for w in en_list],
-            "Correct?": [st.session_state.matching_answers[w] == mapping[w] for w in en_list]
+def show_matching_results():
+    """显示匹配游戏结果"""
+    st.balloons()
+    
+    en_list = st.session_state.matching_en_list
+    cn_list = st.session_state.matching_cn_list
+    mapping = st.session_state.matching_mapping
+    answers = st.session_state.matching_answers
+    score = st.session_state.matching_score
+    total = len(en_list)
+    
+    st.success(f"🎮 Game Finished! Your score: **{score}/{total}**")
+    
+    # 创建结果表格
+    df_data = []
+    for i, en_word in enumerate(en_list):
+        correct_cn = mapping.get(en_word, "")
+        user_answer = answers[i] if answers[i] else "(No answer)"
+        is_correct = user_answer == correct_cn
+        
+        df_data.append({
+            "English Word": en_word,
+            "Correct Chinese": correct_cn,
+            "Your Answer": user_answer,
+            "Result": "✅" if is_correct else "❌"
         })
-        st.subheader("Your results")
-        st.table(df)
+    
+    df = pd.DataFrame(df_data)
+    
+    # 显示结果表格
+    st.subheader("📊 Your Results")
+    st.dataframe(
+        df,
+        column_config={
+            "English Word": st.column_config.TextColumn(
+                "English",
+                width="medium"
+            ),
+            "Correct Chinese": st.column_config.TextColumn(
+                "Correct Meaning",
+                width="medium"
+            ),
+            "Your Answer": st.column_config.TextColumn(
+                "Your Choice",
+                width="medium"
+            ),
+            "Result": st.column_config.TextColumn(
+                "Result",
+                help="✅ = Correct, ❌ = Wrong"
+            )
+        },
+        hide_index=True,
+        use_container_width=True
+    )
+    
+    # 显示统计信息
+    accuracy = (score / total) * 100
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Score", f"{score}/{total}")
+    with col2:
+        st.metric("Accuracy", f"{accuracy:.1f}%")
+    with col3:
+        if accuracy >= 90:
+            performance = "🏆 Excellent"
+        elif accuracy >= 75:
+            performance = "👍 Great"
+        elif accuracy >= 60:
+            performance = "👌 Good"
+        else:
+            performance = "📚 Needs Practice"
+        st.metric("Performance", performance)
+    
+    # 显示正确答案的翻译参考
+    with st.expander("📚 All Word Translations", expanded=False):
+        trans_data = []
+        for en_word, cn_meaning in mapping.items():
+            trans_data.append({
+                "English": en_word,
+                "Chinese": cn_meaning
+            })
+        
+        trans_df = pd.DataFrame(trans_data)
+        st.table(trans_df)
+    
+    # 添加操作按钮（与其他游戏一致）
+    st.markdown("---")
+    st.write("### What would you like to do next?")
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        if st.button("🔄 Play Again", 
+                    use_container_width=True,
+                    help="Play the same game again with new random order"):
+            reset_matching_game()
+            st.rerun()
+    
+    with col2:
+        if st.button("🎮 Try Another Game", 
+                    use_container_width=True,
+                    help="Go back to choose a different game mode"):
+            st.session_state.game_started = False
+            reset_matching_game()
+            st.rerun()
+    
+    with col3:
+        if st.button("🏠 Main Menu", 
+                    use_container_width=True,
+                    help="Return to the main menu"):
+            st.session_state.game_started = False
+            st.session_state.game_mode = None
+            reset_matching_game(clear_all=True)
+            st.rerun()
 
-        # 游戏结束，允许用户选择下一步
-        st.session_state.game_started = False
-        st.session_state.matching_words_generated = False
-
+def reset_matching_game(clear_all=False):
+    """重置匹配游戏状态"""
+    keys_to_reset = [
+        "matching_en_list", "matching_cn_list", "matching_mapping",
+        "matching_current_index", "matching_score", "matching_answers",
+        "matching_submitted", "matching_finished", "matching_words_generated",
+        "matching_waiting_for_next"
+    ]
+    
+    for key in keys_to_reset:
+        if key in st.session_state:
+            del st.session_state[key]
+    
+    # 清除所有选择状态
+    for key in list(st.session_state.keys()):
+        if key.startswith("match_"):
+            del st.session_state[key]
+    
+    # 如果清除所有，也清除翻译缓存
+    if clear_all and "translation_cache" in st.session_state:
+        del st.session_state["translation_cache"]
         
 # ------------------- Merriam-Webster API -------------------
 MW_API_KEY = "b03334be-a55f-4416-9ff4-782b15a4dc77"  
