@@ -501,16 +501,16 @@ def play_spelling_game():
         # 游戏界面
         st.info(f"📝 Word {idx + 1} of {len(st.session_state.spelling_words)}")
         
-        # 游戏说明
-        st.info("""
-        **游戏说明:**
-        - 🎧 点击播放按钮听单词发音
-        - 🔤 输入你听到的字母，按Enter键检查
-        - ✅ 正确的字母会自动出现在对应位置
-        - ❌ 错误的字母会记录在下方
-        - ⚠️ 每个单词最多有5次错误机会
-        - 💡 错误3次后会有提示
-        """)
+        # 精简游戏说明
+        with st.expander("ℹ️ Game Instructions", expanded=False):
+            st.markdown("""
+            - 🎧 Listen to the word pronunciation
+            - 🔤 Type letters you hear (press Enter)
+            - ✅ Correct letters appear automatically
+            - ❌ Wrong letters are tracked below
+            - ⚠️ Max 5 wrong attempts per word
+            - 💡 Hint after 3 wrong attempts
+            """)
         
         # 音频播放（居中对齐）
         audio_file = generate_tts_audio(current_word)
@@ -518,50 +518,58 @@ def play_spelling_game():
         with col2:
             st.audio(audio_file, format="audio/mp3")
         
-        # 显示单词空格（居中对齐，放大字号）
-        display_word = ""
+        # 显示单词空格（居中对齐，放大字号） - 修复显示问题
+        display_letters = []
         for i, letter in enumerate(current_word):
             if current_word_data["revealed"][i]:
-                display_word += f"**{letter.upper()}** "
+                # 用小写字母显示已揭示的字母
+                display_letters.append(f'<span style="color: #2E86C1; font-weight: bold;">{letter}</span>')
             else:
-                display_word += "___ "
+                display_letters.append('<span style="color: #7B7D7D;">___</span>')
         
         # 使用HTML样式让单词居中并放大
         st.markdown(f"""
-        <div style="text-align: center; margin: 30px 0;">
-            <h1 style="font-size: 48px; letter-spacing: 10px; font-weight: bold;">
-                {display_word}
+        <div style="text-align: center; margin: 20px 0 30px 0;">
+            <h1 style="font-size: 42px; letter-spacing: 8px; font-family: 'Courier New', monospace;">
+                {' '.join(display_letters)}
             </h1>
         </div>
         """, unsafe_allow_html=True)
         
-        # 显示已尝试的字母和错误字母列表
-        if current_word_data["attempted_letters"]:
-            attempted_display = []
-            for letter in sorted(current_word_data["attempted_letters"]):
-                if letter in current_word_data["wrong_letters"]:
-                    attempted_display.append(f"❌{letter.upper()}")
-                else:
-                    attempted_display.append(f"✅{letter.upper()}")
+        # 显示已尝试的字母和错误字母列表（紧凑显示）
+        if current_word_data["attempted_letters"] or current_word_data["wrong_letters"]:
+            col1, col2 = st.columns(2)
             
-            st.markdown(f"**Attempted letters:** {' '.join(attempted_display)}")
-        
-        # 显示错误字母列表
-        if current_word_data["wrong_letters"]:
-            wrong_list = [f"❌{letter.upper()}" for letter in sorted(current_word_data["wrong_letters"])]
-            st.markdown(f"**Wrong letters:** {' '.join(wrong_list)}")
+            with col1:
+                if current_word_data["attempted_letters"]:
+                    attempted_display = []
+                    for letter in sorted(current_word_data["attempted_letters"]):
+                        if letter in current_word_data["wrong_letters"]:
+                            attempted_display.append(f"❌{letter}")
+                        else:
+                            attempted_display.append(f"✅{letter}")
+                    
+                    st.markdown(f"**Attempted:** {' '.join(attempted_display)}")
+            
+            with col2:
+                if current_word_data["wrong_letters"]:
+                    wrong_list = [f"❌{letter}" for letter in sorted(current_word_data["wrong_letters"])]
+                    st.markdown(f"**Wrong:** {' '.join(wrong_list)}")
         
         # 提示系统（错误3次后提供首字母提示）
         if current_word_data["wrong_count"] >= 3 and not current_word_data["hint_given"]:
-            st.info(f"💡 **Hint:** The word starts with **'{current_word[0].upper()}'**")
-            if st.button("Show More Hints", key=f"hint_btn_{idx}"):
-                # 找出最常用的元音字母提示
-                vowels_in_word = [l for l in current_word if l in 'aeiou']
-                if vowels_in_word:
-                    st.info(f"💡 The word contains these vowels: {', '.join(vowels_in_word).upper()}")
-                current_word_data["hint_given"] = True
+            hint_col1, hint_col2 = st.columns([3, 1])
+            with hint_col1:
+                st.info(f"💡 **Hint:** The word starts with **'{current_word[0]}'**")
+            with hint_col2:
+                if st.button("More Hints", key=f"hint_btn_{idx}"):
+                    # 找出最常用的元音字母提示
+                    vowels_in_word = [l for l in current_word if l in 'aeiou']
+                    if vowels_in_word:
+                        st.info(f"💡 Contains vowels: {', '.join(vowels_in_word)}")
+                    current_word_data["hint_given"] = True
         
-        # 字母输入（居中对齐）
+        # 字母输入框和按钮在同一行
         st.markdown("---")
         
         # 使用一个标志来跟踪是否需要清空输入框
@@ -570,21 +578,23 @@ def play_spelling_game():
         
         # 创建表单用于Enter键提交
         with st.form(key=f"spelling_form_{idx}"):
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col2:
+            # 在同一行显示输入框和按钮
+            input_col, btn_col = st.columns([4, 1])
+            
+            with input_col:
                 # 如果设置了清空标志，使用空值
                 input_value = "" if st.session_state.get(f"clear_input_{idx}", False) else ""
                 user_input = st.text_input(
-                    "Enter letters and press Enter:",
+                    "Type letters and press Enter:",
                     value=input_value,
                     key=f"spelling_input_{idx}",
-                    placeholder="Type letters here...",
+                    placeholder="Enter letters here...",
                     max_chars=10,
                     label_visibility="collapsed"
                 ).lower()
             
-            # 居中的提交按钮
-            submitted = st.form_submit_button("🔤 Check Letters", use_container_width=False)
+            with btn_col:
+                submitted = st.form_submit_button("🔤 Check", use_container_width=True)
             
             if submitted and user_input:
                 # 处理用户输入
@@ -597,9 +607,13 @@ def play_spelling_game():
         if st.session_state.get(f"clear_input_{idx}", False):
             st.session_state[f"clear_input_{idx}"] = False
         
-        # 如果单词已完成，显示完成信息和Next按钮
+        # 进度条放在底部
+        progress = current_word_data["wrong_count"] / 5
+        st.progress(progress, text=f"Wrong attempts: {current_word_data['wrong_count']}/5")
+        
+        # 如果单词已完成或错误达到上限，显示相应信息
         if current_word_data["completed"]:
-            st.success(f"🎉 Congratulations! You spelled **'{current_word.upper()}'** correctly!")
+            st.success(f"🎉 Congratulations! You spelled **'{current_word}'** correctly!")
             
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
@@ -609,9 +623,8 @@ def play_spelling_game():
                     st.session_state.spelling_index += 1
                     st.rerun()
         
-        # 如果错误次数达到上限，自动跳转
-        if current_word_data["wrong_count"] >= 5 and not current_word_data["completed"]:
-            st.error(f"❌ Maximum attempts reached. The word was **'{current_word.upper()}'**")
+        elif current_word_data["wrong_count"] >= 5:
+            st.error(f"❌ Maximum attempts reached. The word was **'{current_word}'**")
             
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
@@ -620,67 +633,7 @@ def play_spelling_game():
                             use_container_width=True):
                     st.session_state.spelling_index += 1
                     st.rerun()
-        
-        # 进度条放在底部
-        st.markdown("---")
-        progress = current_word_data["wrong_count"] / 5
-        st.progress(progress, text=f"Wrong attempts: {current_word_data['wrong_count']}/5")
-
-def process_spelling_input(idx, user_input):
-    """处理用户输入的字母"""
-    word_data = st.session_state.spelling_progress[idx]
-    word = word_data["word"]
-    
-    # 过滤输入：只保留字母，转换为小写
-    filtered_input = ''.join([c for c in user_input if c.isalpha()]).lower()
-    
-    if not filtered_input:
-        return
-    
-    # 记录用户输入历史
-    word_data["user_input_history"].append(filtered_input)
-    
-    correct_letters = []
-    wrong_letters = []
-    
-    # 检查每个输入的字母
-    for letter in filtered_input:
-        # 如果这个字母之前已经尝试过，跳过
-        if letter in word_data["attempted_letters"]:
-            continue
-        
-        # 记录为已尝试
-        word_data["attempted_letters"].add(letter)
-        
-        # 检查字母是否在单词中
-        if letter in word:
-            # 找到所有这个字母的位置并揭示
-            for i, w_letter in enumerate(word):
-                if w_letter == letter and not word_data["revealed"][i]:
-                    word_data["revealed"][i] = True
-            correct_letters.append(letter)
-        else:
-            # 错误的字母
-            word_data["wrong_letters"].add(letter)
-            wrong_letters.append(letter)
-            word_data["wrong_count"] += 1
-    
-    # 检查是否完成单词
-    if all(word_data["revealed"]):
-        word_data["completed"] = True
-        st.session_state.spelling_score += 1
-    
-    # 显示反馈
-    if correct_letters:
-        st.success(f"✅ Correct letters: {', '.join([l.upper() for l in correct_letters])}")
-    
-    if wrong_letters:
-        st.error(f"❌ Wrong letters: {', '.join([l.upper() for l in wrong_letters])}")
-        
-        # 如果达到错误上限，提示
-        if word_data["wrong_count"] >= 5:
-            st.error("⚠️ You've reached the maximum wrong attempts!")
-    
+                                
 # ------------------- 3. Matching Game helpers -------------------
 def generate_matching_game_once(user_words):
     """
