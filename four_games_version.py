@@ -525,7 +525,7 @@ def play_spelling_game():
                 # 用小写字母显示已揭示的字母
                 display_letters.append(f'<span style="color: #2E86C1; font-weight: bold;">{letter}</span>')
             else:
-                display_letters.append('<span style="color: #7B7D7D;">___</span>')
+                display_letters.append('<span style="color: #7B7D7D;">_</span>')
         
         # 使用HTML样式让单词居中并放大
         st.markdown(f"""
