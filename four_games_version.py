@@ -623,7 +623,7 @@ def get_example_sentence_mw(word):
         data = r.json()
         if not data or not isinstance(data[0], dict):
             # 使用清理后的默认句子
-            return f"DEFAULT SENTECT: I LIKE TO {word} EVRY DAY."
+            return f"DEFAULT SENTECT: I LIKE TO {word} EVERY DAY."
         defs = data[0].get("def", [])
         for d in defs:
             sseq = d.get("sseq", [])
