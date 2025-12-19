@@ -208,13 +208,13 @@ if st.session_state.user_words and len(st.session_state.user_words) == 10:
             st.rerun()
     
     with col3:
-        if st.button("🔤 义 Matching game", use_container_width=True,
+        if st.button("🔤 义 Matching", use_container_width=True,
                     type="primary" if st.session_state.get("game_mode") == "Matching Game" else "secondary"):
             st.session_state.game_mode = "Matching Game"
             st.rerun()
     
     with col4:
-        if st.button("📝 用 Fill in the blank", use_container_width=True,
+        if st.button("📝 用 Fill in", use_container_width=True,
                     type="primary" if st.session_state.get("game_mode") == "Fill-in-the-Blank Game" else "secondary"):
             st.session_state.game_mode = "Fill-in-the-Blank Game"
             st.rerun()
@@ -224,8 +224,8 @@ if st.session_state.user_words and len(st.session_state.user_words) == 10:
         mode_display = {
             "Listen & Choose": "🎧 音 Listen&choose",
             "Spelling Game": "✏️ 形 Spelling Game", 
-            "Matching Game": "🔤 义 Matching game",
-            "Fill-in-the-Blank Game": "📝 用 Fill in the blank"
+            "Matching Game": "🔤 义 Matching",
+            "Fill-in-the-Blank Game": "📝 用 Fill in"
         }
         st.info(f"已选择: {mode_display.get(st.session_state.game_mode, st.session_state.game_mode)}")
         
