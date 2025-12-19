@@ -1346,4 +1346,7 @@ if st.session_state.game_started and st.session_state.game_mode == "Matching Gam
 # ------------------- Fill-in-the-Blank  -------------------
 if st.session_state.game_started and st.session_state.game_mode == "Fill-in-the-Blank Game":
     play_fill_blank_game()
-
+    
+# =================== 新增：Spelling Game调用 ===================
+if st.session_state.get("game_started", False) and st.session_state.get("game_mode") == "Spelling Game":
+    play_spelling_game()
