@@ -641,7 +641,103 @@ def play_fill_blank_game():
                         if key.startswith("fb_selected_"):
                             del st.session_state[key]
                     st.rerun()
-            
+# ------------------- Streamlit Design -------------------
+st.set_page_config(page_title="Vocabuddy", layout="centered")
+st.title("Hi, Welcome to Vocabuddy")
+
+# ------------------- session_state defaults -------------------
+if "user_words" not in st.session_state:
+    st.session_state.user_words = []
+if "game_started" not in st.session_state:
+    st.session_state.game_started = False
+if "game_mode" not in st.session_state:
+    st.session_state.game_mode = None
+
+# Scrambled Game state
+if "scramble_index" not in st.session_state:
+    st.session_state.scramble_index = 0
+if "scramble_score" not in st.session_state:
+    st.session_state.scramble_score = 0
+if "scramble_answers" not in st.session_state:
+    st.session_state.scramble_answers = [""] * 10
+if "scramble_scrambled" not in st.session_state:
+    st.session_state.scramble_scrambled = [""] * 10
+
+# translation cache
+if "translation_cache" not in st.session_state:
+    st.session_state.translation_cache = {}
+
+# ------------------- Users Input -------------------
+st.markdown("### 1. Provide 10 words")
+words_input = st.text_area("Please enter 10 words (use space or enter in another line)", height=120)
+if words_input:
+    st.session_state.user_words = [w.strip() for w in words_input.split() if w.strip()]
+
+col1, col2 = st.columns(2)
+with col1:
+    uploaded_file = st.file_uploader("Upload a file (txt/csv/docx/pdf)", type=["txt","csv","docx","pdf"])
+    if uploaded_file:
+        words_from_file = read_file(uploaded_file)
+        if words_from_file:
+            st.session_state.user_words = words_from_file
+        else:
+            st.warning("Couldn't read file or file empty. Make sure it's a supported format and contains text.")
+
+with col2:
+    uploaded_image = st.file_uploader("Upload an image (OCR)", type=["png","jpg","jpeg","bmp","tiff","tif"])
+    if uploaded_image:
+        words_from_image = read_image(uploaded_image)
+        if words_from_image:
+            st.session_state.user_words = words_from_image
+        else:
+            st.warning("OCR failed or no text found in image. Ensure tesseract is installed and image contains text.")
+
+# ------------------- make sure 10 words -------------------
+if st.session_state.user_words:
+    st.info(f"Current words ({len(st.session_state.user_words)}): {st.session_state.user_words}")
+    if len(st.session_state.user_words) != 10:
+        st.warning("Please provide exactly 10 words to play (you can enter/upload more and then edit).")
+
+# ------------------- choose game mode -------------------
+# 在 "Start Game" 按钮中添加听音游戏的状态重置：
+if st.button("Start Game"):
+    st.session_state.game_started = True
+    original_words = st.session_state.user_words.copy()
+    
+    # 为各个游戏创建单词列表副本
+    st.session_state.scramble_words = original_words.copy()
+    random.shuffle(st.session_state.scramble_words)
+    
+    st.session_state.matching_words = original_words.copy()
+    st.session_state.listen_words = original_words.copy()  # 听音游戏使用原始顺序
+    st.session_state.fill_blank_words = original_words.copy()
+    
+    # reset Scramble Game
+    st.session_state.scramble_index = 0
+    st.session_state.scramble_score = 0
+    st.session_state.scramble_answers = [""] * 10
+    st.session_state.scramble_scrambled = [""] * 10
+    
+    # reset Matching Game
+    st.session_state.matching_answers = {}
+    st.session_state.matching_score = 0
+    st.session_state.matching_words_generated = False
+    
+    # ⭐️ 新增：reset Listen & Choose Game ⭐️
+    st.session_state.Listen_index = 0
+    st.session_state.Listen_score = 0
+    st.session_state.Listen_answers = [""] * 10
+    st.session_state.Listen_played_words = []  # 清空播放顺序
+    st.session_state.Listen_options_list = []  # 清空选项列表
+    st.session_state.waiting_for_next = False  # 新增状态
+    
+    # reset Fill-in-the-Blank Game
+    st.session_state.fill_index = 0
+    st.session_state.fill_score = 0
+    st.session_state.fill_answers = [""] * 10
+    st.session_state.fill_sentences = []
+    st.session_state.fill_blanks = []
+    
 # ------------------- Scrambled Game -------------------
 if st.session_state.get("game_started") and st.session_state.get("game_mode") == "Scrambled Letters Game":
     st.subheader("Spell the word in correct order")
