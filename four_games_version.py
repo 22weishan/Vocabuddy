@@ -499,8 +499,6 @@ def play_spelling_game():
         current_word = current_word_data["word"]
         
         # 游戏界面
-        st.info(f"📝 Word {idx + 1} of {len(st.session_state.spelling_words)}")
-        
         # 精简游戏说明
         with st.expander("ℹ️ Game Instructions", expanded=False):
             st.markdown("""
@@ -514,6 +512,13 @@ def play_spelling_game():
         
         # 音频播放（居中对齐）
         audio_file = generate_tts_audio(current_word)
+        progress_col, audio_col = st.columns([1, 3])
+
+        with progress_col:
+            st.info(f"📝 Word {idx + 1} of {len(st.session_state.spelling_words)}")
+        with audio_col:
+            st.audio(audio_file, format="audio/mp3")
+     
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             st.audio(audio_file, format="audio/mp3")
