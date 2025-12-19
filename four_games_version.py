@@ -513,7 +513,7 @@ if st.session_state.get("game_started") and st.session_state.get("game_mode") ==
         st.table(df)
         st.session_state.game_started = False
 
-# ------------------- Matching Game helpers -------------------
+# ------------------- 3. Matching Game helpers -------------------
 def generate_matching_game_once(user_words):
     """
     Generate (and translate) only once. Returns en_shuffled, cn_shuffled, mapping.
@@ -544,12 +544,13 @@ def generate_matching_game_once(user_words):
 def prepare_matching_game():
     """Ensure matching game data exists in session_state (generate once per Start Game)."""
     if st.session_state.get("game_started", False) and st.session_state.get("game_mode") == "Matching Game":
-        en_list, cn_list, mapping = generate_matching_game_once(st.session_state.user_words)
-        st.session_state.en_list = en_list
-        st.session_state.cn_list = cn_list
-        st.session_state.mapping = mapping
-        st.session_state.matching_answers = {w: "Select" for w in en_list}
-        st.session_state.matching_words_generated = True
+        if not st.session_state.get("matching_words_generated", False):
+            en_list, cn_list, mapping = generate_matching_game_once(st.session_state.user_words)
+            st.session_state.en_list = en_list
+            st.session_state.cn_list = cn_list
+            st.session_state.mapping = mapping
+            st.session_state.matching_answers = {w: "Select" for w in en_list}
+            st.session_state.matching_words_generated = True
 
 def play_matching_game():
     prepare_matching_game()
@@ -561,18 +562,19 @@ def play_matching_game():
 
     # Build selectboxes — keys must be stable
     for en_word in en_list:
-        # Use the stored answer as the default value. Provide options of cn_list (shuffled)
         current_choice = st.session_state.matching_answers.get(en_word, "Select")
+        # 不使用 on_change 或 rerun
         sel = st.selectbox(
             f"{en_word} ->",
             options=["Select"] + cn_list,
             index=(0 if current_choice not in (["Select"] + cn_list) else (["Select"] + cn_list).index(current_choice)),
             key=f"matching_{en_word}"
         )
-        # Save selection into session_state mapping for persistence
+        # 保存选择状态到 session_state
         st.session_state.matching_answers[en_word] = sel
 
-    if st.button("Submit Matching Game"):
+    st.markdown("---")
+    if st.button("✅ Submit Matching Game"):
         score = 0
         for w in en_list:
             if st.session_state.matching_answers.get(w) == mapping.get(w):
@@ -588,8 +590,11 @@ def play_matching_game():
         })
         st.subheader("Your results")
         st.table(df)
-        # end game
+
+        # 游戏结束，允许用户选择下一步
         st.session_state.game_started = False
+        st.session_state.matching_words_generated = False
+
         
 # ------------------- Merriam-Webster API -------------------
 MW_API_KEY = "b03334be-a55f-4416-9ff4-782b15a4dc77"  
