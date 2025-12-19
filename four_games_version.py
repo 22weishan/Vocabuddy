@@ -441,7 +441,7 @@ if st.session_state.user_words and len(st.session_state.user_words) >= 10:
         st.info("👆 请选择一个游戏模式")
     
     # 为各个游戏创建单词列表副本
-    st.session_state.scramble_words = original_words.copy()
+    st.session_state.scramble_words = st.session_state.user_words.copy()
     random.shuffle(st.session_state.scramble_words)
     
     st.session_state.matching_words = original_words.copy()
