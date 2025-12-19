@@ -188,33 +188,33 @@ if st.session_state.user_words:
         st.warning("Please provide exactly 10 words to play (you can enter/upload more and then edit).")
         
 # ------------------- choose game mode -------------------
-# ------------------- 卡片式游戏选择 -------------------
+# 卡片式游戏选择
 if st.session_state.user_words and len(st.session_state.user_words) == 10:
-    st.markdown("### 2. 选择游戏模式")
+    st.markdown("### 2. Choose Game Mode 选择游戏模式")
     
     # 简单的四个按钮代替下拉框
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        if st.button("🎧 听音辨词", use_container_width=True, 
+        if st.button("🎧 音 Listen&choose", use_container_width=True, 
                     type="primary" if st.session_state.get("game_mode") == "Listen & Choose" else "secondary"):
             st.session_state.game_mode = "Listen & Choose"
             st.rerun()
     
     with col2:
-        if st.button("✏️ 拼写游戏", use_container_width=True,
+        if st.button("✏️ 形 Spelling Game", use_container_width=True,
                     type="primary" if st.session_state.get("game_mode") == "Spelling Game" else "secondary"):
             st.session_state.game_mode = "Spelling Game"
             st.rerun()
     
     with col3:
-        if st.button("🔤 词义配对", use_container_width=True,
+        if st.button("🔤 义 Matching game", use_container_width=True,
                     type="primary" if st.session_state.get("game_mode") == "Matching Game" else "secondary"):
             st.session_state.game_mode = "Matching Game"
             st.rerun()
     
     with col4:
-        if st.button("📝 语境填空", use_container_width=True,
+        if st.button("📝 用 Fill in the blank", use_container_width=True,
                     type="primary" if st.session_state.get("game_mode") == "Fill-in-the-Blank Game" else "secondary"):
             st.session_state.game_mode = "Fill-in-the-Blank Game"
             st.rerun()
@@ -222,10 +222,10 @@ if st.session_state.user_words and len(st.session_state.user_words) == 10:
     # 显示当前选择
     if st.session_state.game_mode:
         mode_display = {
-            "Listen & Choose": "🎧 听音辨词",
-            "Spelling Game": "✏️ 拼写游戏", 
-            "Matching Game": "🔤 词义配对",
-            "Fill-in-the-Blank Game": "📝 语境填空"
+            "Listen & Choose": "🎧 音 Listen&choose",
+            "Spelling Game": "✏️ 形 Spelling Game", 
+            "Matching Game": "🔤 义 Matching game",
+            "Fill-in-the-Blank Game": "📝 用 Fill in the blank"
         }
         st.info(f"已选择: {mode_display.get(st.session_state.game_mode, st.session_state.game_mode)}")
         
