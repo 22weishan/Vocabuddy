@@ -12,7 +12,6 @@ from gtts import gTTS
 import os
 
 # ============ initialization: session_state ============
-''' initialize four games'''
 
 if "user_words" not in st.session_state:
     st.session_state.user_words = []
