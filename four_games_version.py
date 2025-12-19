@@ -643,7 +643,7 @@ def play_fill_blank_game():
                     st.rerun()
             
 # ------------------- Scrambled Game -------------------
-if st.session_state.game_started and st.session_state.game_mode == "Scrambled Letters Game":
+if st.session_state.get("game_started") and st.session_state.get("game_mode") == "Scrambled Letters Game":
     st.subheader("Spell the word in correct order")
     idx = st.session_state.scramble_index
 
@@ -656,34 +656,25 @@ if st.session_state.game_started and st.session_state.game_mode == "Scrambled Le
         else:
             scrambled = st.session_state.scramble_scrambled[idx]
 
-        def submit_answer():
-            answer = st.session_state.scramble_input
-            st.session_state.scramble_answers[idx] = answer.strip()
-            if answer.strip().lower() == current_word.lower():
-                st.session_state.scramble_score += 1
-            st.session_state.scramble_index += 1
-            st.session_state.scramble_input = ""
+        st.write(f"Word {idx+1}/10: **{scrambled}**")
 
-        st.text_input(
-            f"Word {idx + 1}: {scrambled}",
-            key="scramble_input",
-            on_change=submit_answer
+        answer = st.text_input(
+            "Type the correct spelling:",
+            value=st.session_state.scramble_answers[idx],
+            key=f"scramble_answer_{idx}"
         )
-    else:
-        st.success(f"Game finished! Your score: {st.session_state.scramble_score}/10")
-        data = {
-            "Word": st.session_state.user_words,
-            "Scrambled": st.session_state.scramble_scrambled,
-            "Your Answer": st.session_state.scramble_answers,
-            "Correct?": [
-                ua.strip().lower() == w.lower()
-                for ua, w in zip(st.session_state.scramble_answers, st.session_state.user_words)
-            ]
-        }
-        df = pd.DataFrame(data)
-        st.subheader("Your accuracy")
-        st.table(df)
-        st.session_state.game_started = False
+
+        if st.button("Submit", key=f"scramble_submit_{idx}"):
+            st.session_state.scramble_answers[idx] = answer
+
+            if answer.lower() == current_word.lower():
+                st.success("Correct!")
+                st.session_state.scramble_score += 1
+            else:
+                st.error(f"Wrong. Correct answer: {current_word}")
+
+            st.session_state.scramble_index += 1
+            st.rerun()
 
 # ------------------- Matching Game -------------------
 if st.session_state.game_started and st.session_state.game_mode == "Matching Game":
