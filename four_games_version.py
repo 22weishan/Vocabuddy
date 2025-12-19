@@ -453,16 +453,16 @@ if st.session_state.get("game_started", False) and st.session_state.get("game_mo
                 st.rerun()
 
 # ------------------- 2. Scrambled Letters Game -------------------
-# ------------------- Scrambled Letters Game -------------------
+# Enhance spelling and word formation skills
+# Core Algorithm: 1）Randomly shuffles letters of target words 2）Ensures scrambled version differs from original 3）Validates user input against correct spelling 4）Maintains sequential progression through vocabulary set
+
 def scramble_word(w):
-    """Scramble letters of a word; safe against empty or None"""
-    if not w or not isinstance(w, str):
-        return ""
     letters = list(w)
     if len(letters) <= 1:
         return w
     random.shuffle(letters)
     scrambled = "".join(letters)
+    # ensure scrambled is different (try a few times)
     tries = 0
     while scrambled == w and tries < 10:
         random.shuffle(letters)
@@ -470,83 +470,48 @@ def scramble_word(w):
         tries += 1
     return scrambled
 
-def play_scrambled_game():
-    """Main Scrambled Letters Game logic"""
-    st.subheader("📝 Scrambled Letters Game")
-    
-    # 清理空单词
-    user_words = [w for w in st.session_state.user_words if w]
-    if not user_words:
-        st.warning("No valid words provided.")
-        return
-    
+# ------------------- Scrambled Game -------------------
+if st.session_state.get("game_started") and st.session_state.get("game_mode") == "Scrambled Letters Game":
+    st.subheader("Spell the word in correct order")
     idx = st.session_state.scramble_index
-    
-    if idx < len(user_words):
-        current_word = user_words[idx]
-        
-        # 生成或读取已生成的乱序单词
-        if "scramble_scrambled" not in st.session_state:
-            st.session_state.scramble_scrambled = [""] * len(user_words)
+
+    if idx < len(st.session_state.user_words):
+        current_word = st.session_state.user_words[idx]
+
         if not st.session_state.scramble_scrambled[idx]:
-            st.session_state.scramble_scrambled[idx] = scramble_word(current_word)
-        scrambled = st.session_state.scramble_scrambled[idx]
-        
-        st.write(f"Word {idx + 1}/{len(user_words)}: **{scrambled}**")
-        
-        # 输入框
-        answer = st.text_input(
-            "Type the correct spelling and press Enter:",
-            value=st.session_state.scramble_answers[idx] if "scramble_answers" in st.session_state else "",
-            key=f"scramble_answer_{idx}"
-        )
-        
-        # 自动提交（按 Enter 或按钮）
-        submit = st.button("Submit", key=f"scramble_submit_{idx}")
-        
-        if answer:
-            # 如果用户输入，直接记录并下一题
-            st.session_state.scramble_answers[idx] = answer
-            if answer.lower() == current_word.lower():
-                st.success("✅ Correct!")
+            scrambled = scramble_word(current_word)
+            st.session_state.scramble_scrambled[idx] = scrambled
+        else:
+            scrambled = st.session_state.scramble_scrambled[idx]
+
+        def submit_answer():
+            answer = st.session_state.scramble_input
+            st.session_state.scramble_answers[idx] = answer.strip()
+            if answer.strip().lower() == current_word.lower():
                 st.session_state.scramble_score += 1
-            else:
-                st.error(f"❌ Wrong. Correct answer: {current_word}")
-            
-            # 下一题
             st.session_state.scramble_index += 1
-            st.experimental_rerun()
-    
+            st.session_state.scramble_input = ""
+
+        st.text_input(
+            f"Word {idx + 1}: {scrambled}",
+            key="scramble_input",
+            on_change=submit_answer
+        )
     else:
-        # 游戏结束
-        st.balloons()
-        st.success(f"🎉 Game Finished! Your score: **{st.session_state.scramble_score}/{len(user_words)}**")
-        
-        # 显示结果表
-        df = pd.DataFrame({
+        st.success(f"Game finished! Your score: {st.session_state.scramble_score}/10")
+        data = {
+            "Word": st.session_state.user_words,
             "Scrambled": st.session_state.scramble_scrambled,
             "Your Answer": st.session_state.scramble_answers,
-            "Correct Answer": user_words,
-            "Result": [
-                "✅ Correct" if a.lower() == w.lower() else "❌ Wrong"
-                for a, w in zip(st.session_state.scramble_answers, user_words)
+            "Correct?": [
+                ua.strip().lower() == w.lower()
+                for ua, w in zip(st.session_state.scramble_answers, st.session_state.user_words)
             ]
-        })
-        st.subheader("📊 Your Results")
-        st.dataframe(df, hide_index=True, use_container_width=True)
-        
-        # 重置游戏按钮
-        if st.button("🔄 Play Again"):
-            st.session_state.scramble_index = 0
-            st.session_state.scramble_score = 0
-            st.session_state.scramble_answers = [""] * len(user_words)
-            st.session_state.scramble_scrambled = [""] * len(user_words)
-            st.experimental_rerun()
-        
-        if st.button("🏠 Main Menu"):
-            st.session_state.game_started = False
-            st.session_state.game_mode = None
-            st.experimental_rerun()
+        }
+        df = pd.DataFrame(data)
+        st.subheader("Your accuracy")
+        st.table(df)
+        st.session_state.game_started = False
 
 # ------------------- 调用 Scrambled Letters Game -------------------
 if st.session_state.get("game_started", False) and st.session_state.get("game_mode") == "Scrambled Letters Game":
