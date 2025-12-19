@@ -513,14 +513,6 @@ if st.session_state.get("game_started") and st.session_state.get("game_mode") ==
         st.table(df)
         st.session_state.game_started = False
 
-# ------------------- 调用 Scrambled Letters Game -------------------
-if st.session_state.get("game_started", False) and st.session_state.get("game_mode") == "Scrambled Letters Game":
-    if "scramble_answers" not in st.session_state:
-        st.session_state.scramble_answers = [""] * len(st.session_state.user_words)
-    if "scramble_scrambled" not in st.session_state:
-        st.session_state.scramble_scrambled = [""] * len(st.session_state.user_words)
-    play_scrambled_game()
-
 # ------------------- Matching Game helpers -------------------
 def generate_matching_game_once(user_words):
     """
