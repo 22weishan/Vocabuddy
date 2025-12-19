@@ -300,7 +300,16 @@ if st.session_state.get("game_started", False) and st.session_state.get("game_mo
         correct_word = current_audio_word  # 正确答案就是播放的单词
         
         st.info(f"🎵 Word {idx + 1} of {len(user_words)}")
-        
+
+            # 精简游戏说明
+        with st.expander("ℹ️ Game Instructions", expanded=False):
+            st.markdown("""
+            1. 🎵 Click the play button to hear the word pronunciation 点击播放按钮听单词发音
+            2. 🔤 Select the word you heard from the 10 options below 从下方10个单词中选择你听到的单词
+            3. ✅ Submit your answer for immediate feedback 提交答案，即时获得反馈
+            4. ➡️ View your score after completing all 10 words 完成10个单词后查看成绩
+            """)
+            
         # 生成并播放音频（自动播放）
         audio_file = generate_tts_audio(current_audio_word)
         st.audio(audio_file, format="audio/mp3", autoplay=True)
@@ -535,12 +544,12 @@ def play_spelling_game():
         # 精简游戏说明
         with st.expander("ℹ️ Game Instructions", expanded=False):
             st.markdown("""
-            - 🎧 Listen to the word pronunciation
-            - 🔤 Type letters you hear (press Enter)
-            - ✅ Correct letters appear automatically
-            - ❌ Wrong letters are tracked below
-            - ⚠️ Max 5 wrong attempts per word
-            - 💡 Hint after 3 wrong attempts
+            - 🎧 Listen to the word pronunciation 播放音频听单词的发音
+            - 🔤 Type letters you hear (press Enter) 根据发音输入单词拼写
+            - ✅ Correct letters appear automatically 输入正确的字母会自动出现
+            - ❌ Wrong letters are tracked below 输入错误的字母会有记录
+            - ⚠️ Max 5 wrong attempts per word 每个单词最多5次错误
+            - 💡 Hint after 3 wrong attempts 错3次会有提示
             """)
         
         # 音频播放（居中对齐）
@@ -1420,11 +1429,16 @@ def play_fill_blank_game():
     if st.session_state.get("game_started", False) and st.session_state.get("game_mode") == "Fill-in-the-Blank Game":
         st.subheader("📝 Fill-in-the-Blank Game")
         
-        # 显示提示信息
-        st.info(
-            'When no dictionary example is available, a default sentence will be used.'
-        )
-        
+        with st.expander("ℹ️ Game Instructions", expanded=False):
+            st.markdown("""
+            1. 📖 Read the sentence with a blank 阅读带有空白的句子
+            2. 🔍 Choose the correct word to fill the blank based on context 根据上下文选择正确的单词填入空白
+            3. ✅ Submit your answer to view the original sentence and explanation 提交答案，查看原句和解释
+            4. ➡️ Check your score after completing all questions 完成所有题目后查看成绩
+            5. Important Notes: Some questions use real dictionary examples (scored), and some questions use default sentences (not scored) 部分题目使用词典真实例句（计分）,部分题目使用默认句子（不计分）
+            6. Only real examples count towards your final score 只有真实例句会计入最终分数
+            """)
+            
         # 初始化游戏状态
         if "fb_index" not in st.session_state:
             st.session_state.fb_index = 0
