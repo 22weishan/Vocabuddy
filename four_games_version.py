@@ -11,7 +11,9 @@ import io
 from gtts import gTTS
 import os
 
-# ============ 初始化session_state ============
+# ============ initialization: session_state ============
+''' initialize four games'''
+
 if "user_words" not in st.session_state:
     st.session_state.user_words = []
 if "game_started" not in st.session_state:
@@ -19,7 +21,6 @@ if "game_started" not in st.session_state:
 if "game_mode" not in st.session_state:
     st.session_state.game_mode = "Scrambled Letters Game"
 
-# 初始化各个游戏的状态
 if "scramble_index" not in st.session_state:
     st.session_state.scramble_index = 0
 if "scramble_score" not in st.session_state:
@@ -29,7 +30,6 @@ if "scramble_answers" not in st.session_state:
 if "scramble_scrambled" not in st.session_state:
     st.session_state.scramble_scrambled = [""] * 10
 
-# 初始化Matching Game状态
 if "matching_words_generated" not in st.session_state:
     st.session_state.matching_words_generated = False
 if "matching_answers" not in st.session_state:
@@ -37,7 +37,6 @@ if "matching_answers" not in st.session_state:
 if "matching_score" not in st.session_state:
     st.session_state.matching_score = 0
 
-# 初始化Listen Game状态
 if "Listen_index" not in st.session_state:
     st.session_state.Listen_index = 0
 if "Listen_score" not in st.session_state:
@@ -49,7 +48,6 @@ if "Listen_played_words" not in st.session_state:
 if "waiting_for_next" not in st.session_state:
     st.session_state.waiting_for_next = False
 
-# 初始化Fill-in-the-Blank Game状态
 if "fb_index" not in st.session_state:
     st.session_state.fb_index = 0
 if "fb_score" not in st.session_state:
@@ -206,7 +204,7 @@ if st.button("Start Game"):
     random.shuffle(st.session_state.scramble_words)
     
     st.session_state.matching_words = original_words.copy()
-    st.session_state.listen_words = original_words.copy()  # 听音游戏使用原始顺序
+    st.session_state.listen_words = original_words.copy()  
     st.session_state.fill_blank_words = original_words.copy()
     
     # reset Scramble Game
@@ -247,7 +245,7 @@ if st.button("Start Game"):
         
     st.rerun()
 
-# ______ 1. Listen & Choose (改进版) ______
+# ______ 1. Listen & Choose  ______
 if st.session_state.get("game_started", False) and st.session_state.get("game_mode") == "Listen & Choose":
     st.subheader("🎧 Listen & Choose Game")
     
@@ -453,56 +451,75 @@ if st.session_state.get("game_started", False) and st.session_state.get("game_mo
                     if key.startswith("selected_"):
                         del st.session_state[key]
                 st.rerun()
-                            
-# ------------------- 2. define Scramble Game -------------------
-def scramble_word(w):
-    letters = list(w)
-    if len(letters) <= 1:
-        return w
-    random.shuffle(letters)
-    scrambled = "".join(letters)
-    # ensure scrambled is different (try a few times)
-    tries = 0
-    while scrambled == w and tries < 10:
-        random.shuffle(letters)
-        scrambled = "".join(letters)
-        tries += 1
-    return scrambled
 
-# ------------------- Scrambled Game -------------------
-if st.session_state.get("game_started", False) and st.session_state.get("game_mode") == "Scrambled Letters Game":
+# ------------------- 2. Scrambled Letters Game -------------------
+def play_scrambled_game():
     st.subheader("Spell the word in correct order")
     idx = st.session_state.scramble_index
+    user_words = st.session_state.user_words
 
-    if idx < len(st.session_state.user_words):
-        current_word = st.session_state.user_words[idx]
+    # 游戏进行中
+    if idx < len(user_words):
+        current_word = user_words[idx]
 
+        # 生成打乱单词
         if not st.session_state.scramble_scrambled[idx]:
             scrambled = scramble_word(current_word)
             st.session_state.scramble_scrambled[idx] = scrambled
         else:
             scrambled = st.session_state.scramble_scrambled[idx]
 
-        st.write(f"Word {idx+1}/10: **{scrambled}**")
+        st.write(f"Word {idx+1}/{len(user_words)}: **{scrambled}**")
 
-        answer = st.text_input(
-            "Type the correct spelling:",
-            value=st.session_state.scramble_answers[idx],
-            key=f"scramble_answer_{idx}"
-        )
-
-        if st.button("Submit", key=f"scramble_submit_{idx}"):
+        # 定义提交函数（回车或按钮触发）
+        def submit_scramble():
+            answer = st.session_state[f"scramble_answer_{idx}"]
             st.session_state.scramble_answers[idx] = answer
 
             if answer.lower() == current_word.lower():
-                st.success("Correct!")
+                st.success("✅ Correct!")
                 st.session_state.scramble_score += 1
             else:
-                st.error(f"Wrong. Correct answer: {current_word}")
+                st.error(f"❌ Wrong. Correct answer: {current_word}")
 
             st.session_state.scramble_index += 1
             st.rerun()
 
+        # 输入框，回车提交
+        st.text_input(
+            "Type the correct spelling:",
+            value=st.session_state.scramble_answers[idx],
+            key=f"scramble_answer_{idx}",
+            on_change=submit_scramble
+        )
+
+        # 提交按钮（备用，鼠标点击也可提交）
+        st.button("Submit", key=f"scramble_submit_{idx}", on_click=submit_scramble)
+
+    # 游戏结束
+    else:
+        st.balloons()
+        st.success(f"🎮 Game Finished! Your score: **{st.session_state.scramble_score}/{len(user_words)}**")
+
+        df = pd.DataFrame({
+            "Word": user_words,
+            "Your Answer": st.session_state.scramble_answers,
+            "Correct?": [
+                "✅" if ans.lower() == word.lower() else "❌"
+                for ans, word in zip(st.session_state.scramble_answers, user_words)
+            ]
+        })
+
+        st.subheader("📊 Your Results")
+        st.dataframe(df, hide_index=True, use_container_width=True)
+
+        # 重新开始按钮
+        if st.button("🔄 Play Again"):
+            st.session_state.scramble_index = 0
+            st.session_state.scramble_score = 0
+            st.session_state.scramble_answers = [""] * 10
+            st.session_state.scramble_scrambled = [""] * 10
+            st.rerun()
 
 # ------------------- Matching Game helpers -------------------
 def generate_matching_game_once(user_words):
