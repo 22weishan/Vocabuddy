@@ -641,9 +641,17 @@ def play_fill_blank_game():
                         if key.startswith("fb_selected_"):
                             del st.session_state[key]
                     st.rerun()
+                                
 # ------------------- Streamlit Design -------------------
 st.set_page_config(page_title="Vocabuddy", layout="centered")
 st.title("Hi, Welcome to Vocabuddy")
+
+if "user_words" not in st.session_state:
+    st.session_state.user_words = []
+if "game_started" not in st.session_state:
+    st.session_state.game_started = False
+if "game_mode" not in st.session_state:
+    st.session_state.game_mode = None
 
 # ------------------- session_state defaults -------------------
 if "user_words" not in st.session_state:
