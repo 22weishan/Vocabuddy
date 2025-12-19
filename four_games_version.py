@@ -1964,6 +1964,4 @@ if st.session_state.game_started and st.session_state.game_mode == "Fill-in-the-
 if st.session_state.get("game_started", False) and st.session_state.get("game_mode") == "Spelling Game":
     play_spelling_game()
 
-# ============ 运行主程序 ============
-if __name__ == "__main__":
-    main()
+
