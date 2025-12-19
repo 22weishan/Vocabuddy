@@ -194,7 +194,7 @@ if st.session_state.user_words and len(st.session_state.user_words) == 10:
     st.markdown("### 2. Choose a game and start")
     st.session_state.game_mode = st.selectbox(
         "Choose game mode",
-        ["Scrambled Letters Game", "Matching Game", "Listen & Choose", "Fill-in-the-Blank Game"],
+        ["1. Listen & Choose", "2. Scrambled Letters Game", "3. Matching Game",  "4. Fill-in-the-Blank Game"],
         index=0
     )
 if st.button("Start Game"):
