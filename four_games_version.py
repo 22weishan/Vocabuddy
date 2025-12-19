@@ -897,6 +897,8 @@ def clean_html_tags(text):
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
+# 替换 play_fill_blank_game() 函数中的部分代码
+
 def get_example_sentence_mw(word):
     """
     Get example sentence from Merriam-Webster Collegiate API.
@@ -907,8 +909,8 @@ def get_example_sentence_mw(word):
         r = requests.get(url)
         data = r.json()
         if not data or not isinstance(data[0], dict):
-            # 使用清理后的默认句子
-            return f"DEFAULT SENTECT: I LIKE TO {word} EVERY DAY."
+            # 使用标志性字符串，便于后续识别
+            return f"[DEFAULT] Please use the word: {word}"
         defs = data[0].get("def", [])
         for d in defs:
             sseq = d.get("sseq", [])
@@ -923,12 +925,11 @@ def get_example_sentence_mw(word):
                                 # 清理HTML标签
                                 cleaned_sentence = clean_html_tags(raw_sentence)
                                 return cleaned_sentence
-        # 如果没有找到例句，返回清理后的默认句子
-        return f"DEFAULT SENTECT: I LIKE TO {word} EVRY DAY."
+        # 如果没有找到例句，返回标志性默认句子
+        return f"[DEFAULT] Please use the word: {word}"
     except Exception as e:
-        # 打印错误信息用于调试
         print(f"Error getting example sentence for {word}: {e}")
-        return f"DEFAULT SENTECT: I LIKE TO {word} EVRY DAY."
+        return f"[DEFAULT] Please use the word: {word}"
 
 def create_blank_sentence(word, sentence):
     """Replace the target word with blanks in the sentence, handling variations"""
@@ -937,66 +938,191 @@ def create_blank_sentence(word, sentence):
     # 确保句子已经清理过HTML标签
     cleaned_sentence = clean_html_tags(sentence)
     
-    # 策略1：优先尝试匹配单词的基本形式（不区分大小写）
-    # 使用正则表达式确保匹配整个单词
-    pattern_base = re.compile(rf'\b{re.escape(word)}\b', re.IGNORECASE)
-    if pattern_base.search(cleaned_sentence):
-        # 找到实际出现在句子中的形式（保持原有大小写）
-        match = pattern_base.search(cleaned_sentence)
-        actual_word = cleaned_sentence[match.start():match.end()]
-        return cleaned_sentence.replace(actual_word, "_____")
+    # 检查是否为默认句子
+    if "[DEFAULT]" in cleaned_sentence:
+        # 从默认句子中提取单词
+        match = re.search(r':\s*(\w+)', cleaned_sentence)
+        if match:
+            target_word = match.group(1)
+            return cleaned_sentence.replace(target_word, "_____")
+        return cleaned_sentence
     
-    # 策略2：如果基本形式没找到，尝试更灵活的匹配
-    # 移除可能的标点符号进行匹配
+    # 定义单词的词形变化模式
     word_lower = word.lower()
-    words_in_sentence = re.findall(r'\b\w+\b', cleaned_sentence)
     
-    for i, w in enumerate(words_in_sentence):
-        if w.lower() == word_lower:
-            # 构建正则表达式来匹配这个具体的单词（包括可能的标点）
-            pattern_specific = re.compile(rf'\b{re.escape(w)}\b')
-            match = pattern_specific.search(cleaned_sentence)
-            if match:
-                # 获取匹配位置
-                start, end = match.start(), match.end()
-                # 创建空白句子
-                return cleaned_sentence[:start] + "_____" + cleaned_sentence[end:]
+    # 生成可能的词形变化
+    def generate_variants(base_word):
+        variants = []
+        base_lower = base_word.lower()
+        
+        # 基本形式
+        variants.append(base_word)
+        
+        # 复数形式
+        if base_lower.endswith('y'):
+            variants.append(base_word[:-1] + 'ies')
+            variants.append(base_word[:-1] + 'ied')
+        elif base_lower.endswith(('s', 'x', 'z', 'ch', 'sh')):
+            variants.append(base_word + 'es')
+        else:
+            variants.append(base_word + 's')
+            variants.append(base_word + 'es')
+        
+        # 过去式和过去分词
+        if base_lower.endswith('e'):
+            variants.append(base_word + 'd')
+        else:
+            variants.append(base_word + 'ed')
+        
+        # 进行时
+        if base_lower.endswith('e'):
+            variants.append(base_word[:-1] + 'ing')
+        else:
+            variants.append(base_word + 'ing')
+        
+        # 第三人称单数
+        if base_lower.endswith(('s', 'x', 'z', 'ch', 'sh')):
+            variants.append(base_word + 'es')
+        elif base_lower.endswith('y'):
+            variants.append(base_word[:-1] + 'ies')
+        else:
+            variants.append(base_word + 's')
+        
+        # 不规则变化（常见动词）
+        irregular_map = {
+            'go': ['went', 'gone', 'goes', 'going'],
+            'be': ['am', 'is', 'are', 'was', 'were', 'been', 'being'],
+            'have': ['has', 'had', 'having'],
+            'do': ['does', 'did', 'done', 'doing'],
+            'say': ['says', 'said', 'saying'],
+            'get': ['gets', 'got', 'gotten', 'getting'],
+            'make': ['makes', 'made', 'making'],
+            'know': ['knows', 'knew', 'known', 'knowing'],
+            'think': ['thinks', 'thought', 'thinking'],
+            'take': ['takes', 'took', 'taken', 'taking'],
+            'see': ['sees', 'saw', 'seen', 'seeing'],
+            'come': ['comes', 'came', 'coming'],
+            'want': ['wants', 'wanted', 'wanting'],
+            'look': ['looks', 'looked', 'looking'],
+            'use': ['uses', 'used', 'using'],
+            'find': ['finds', 'found', 'finding'],
+            'give': ['gives', 'gave', 'given', 'giving'],
+            'tell': ['tells', 'told', 'telling'],
+            'work': ['works', 'worked', 'working'],
+            'call': ['calls', 'called', 'calling'],
+            'try': ['tries', 'tried', 'trying'],
+            'ask': ['asks', 'asked', 'asking'],
+            'need': ['needs', 'needed', 'needing'],
+            'feel': ['feels', 'felt', 'feeling'],
+            'become': ['becomes', 'became', 'becoming'],
+            'leave': ['leaves', 'left', 'leaving'],
+            'put': ['puts', 'put', 'putting'],
+            'mean': ['means', 'meant', 'meaning'],
+            'keep': ['keeps', 'kept', 'keeping'],
+            'let': ['lets', 'let', 'letting'],
+            'begin': ['begins', 'began', 'begun', 'beginning'],
+            'seem': ['seems', 'seemed', 'seeming'],
+            'help': ['helps', 'helped', 'helping'],
+            'talk': ['talks', 'talked', 'talking'],
+            'turn': ['turns', 'turned', 'turning'],
+            'start': ['starts', 'started', 'starting'],
+            'show': ['shows', 'showed', 'shown', 'showing'],
+            'hear': ['hears', 'heard', 'hearing'],
+            'play': ['plays', 'played', 'playing'],
+            'run': ['runs', 'ran', 'running'],
+            'move': ['moves', 'moved', 'moving'],
+            'like': ['likes', 'liked', 'liking'],
+            'live': ['lives', 'lived', 'living'],
+            'believe': ['believes', 'believed', 'believing'],
+            'hold': ['holds', 'held', 'holding'],
+            'bring': ['brings', 'brought', 'bringing'],
+            'happen': ['happens', 'happened', 'happening'],
+            'write': ['writes', 'wrote', 'written', 'writing'],
+            'provide': ['provides', 'provided', 'providing'],
+            'sit': ['sits', 'sat', 'sitting'],
+            'stand': ['stands', 'stood', 'standing'],
+            'lose': ['loses', 'lost', 'losing'],
+            'pay': ['pays', 'paid', 'paying'],
+            'meet': ['meets', 'met', 'meeting'],
+            'include': ['includes', 'included', 'including'],
+            'continue': ['continues', 'continued', 'continuing'],
+            'set': ['sets', 'set', 'setting'],
+            'learn': ['learns', 'learned', 'learnt', 'learning'],
+            'lead': ['leads', 'led', 'leading'],
+            'understand': ['understands', 'understood', 'understanding'],
+            'watch': ['watches', 'watched', 'watching'],
+            'follow': ['follows', 'followed', 'following'],
+            'stop': ['stops', 'stopped', 'stopping'],
+            'create': ['creates', 'created', 'creating'],
+            'speak': ['speaks', 'spoke', 'spoken', 'speaking'],
+            'read': ['reads', 'read', 'reading'],
+            'allow': ['allows', 'allowed', 'allowing'],
+            'add': ['adds', 'added', 'adding'],
+            'spend': ['spends', 'spent', 'spending'],
+            'grow': ['grows', 'grew', 'grown', 'growing'],
+            'open': ['opens', 'opened', 'opening'],
+            'walk': ['walks', 'walked', 'walking'],
+            'win': ['wins', 'won', 'winning'],
+            'offer': ['offers', 'offered', 'offering'],
+            'remember': ['remembers', 'remembered', 'remembering'],
+            'love': ['loves', 'loved', 'loving'],
+            'consider': ['considers', 'considered', 'considering'],
+            'appear': ['appears', 'appeared', 'appearing'],
+            'buy': ['buys', 'bought', 'buying'],
+            'wait': ['waits', 'waited', 'waiting'],
+            'serve': ['serves', 'served', 'serving'],
+            'die': ['dies', 'died', 'dying'],
+            'send': ['sends', 'sent', 'sending'],
+            'expect': ['expects', 'expected', 'expecting'],
+            'build': ['builds', 'built', 'building'],
+            'stay': ['stays', 'stayed', 'staying'],
+            'fall': ['falls', 'fell', 'fallen', 'falling'],
+            'cut': ['cuts', 'cut', 'cutting'],
+            'reach': ['reaches', 'reached', 'reaching'],
+            'kill': ['kills', 'killed', 'killing'],
+            'raise': ['raises', 'raised', 'raising'],
+            'pass': ['passes', 'passed', 'passing'],
+            'sell': ['sells', 'sold', 'selling'],
+            'require': ['requires', 'required', 'requiring'],
+        }
+        
+        if base_lower in irregular_map:
+            variants.extend(irregular_map[base_lower])
+        
+        return list(set(variants))  # 去重
     
-    # 策略3：如果还是没找到，检查单词的变体（如复数、时态变化）
-    # 简单的变体检测规则
-    variants = [
-        word + 's',  # 复数
-        word + 'es',  # 复数变体
-        word + 'ed',  # 过去式
-        word + 'ing',  # 进行时
-        word + 'er',  # 比较级
-        word + 'est',  # 最高级
-        word[:-1] + 'ies' if word.endswith('y') else None,  # 复数变体
-        word + 'd' if not word.endswith('e') else None,  # 过去式变体
-    ]
+    # 生成所有可能的变体
+    all_variants = generate_variants(word)
     
-    for variant in variants:
-        if variant:
-            variant_pattern = re.compile(rf'\b{re.escape(variant)}\b', re.IGNORECASE)
-            if variant_pattern.search(cleaned_sentence):
-                match = variant_pattern.search(cleaned_sentence)
-                actual_variant = cleaned_sentence[match.start():match.end()]
-                return cleaned_sentence.replace(actual_variant, "_____")
+    # 按长度排序，优先匹配较长的变体（避免部分匹配）
+    all_variants.sort(key=len, reverse=True)
     
-    # 策略4：如果以上都失败，尝试部分匹配
-    if word_lower in cleaned_sentence.lower():
-        # 找到单词在句子中的位置（不区分大小写）
-        start = cleaned_sentence.lower().find(word_lower)
-        end = start + len(word)
-        # 确保我们替换的是整个单词，而不是部分单词
-        # 检查边界字符
-        if (start == 0 or not cleaned_sentence[start-1].isalnum()) and \
-           (end >= len(cleaned_sentence) or not cleaned_sentence[end].isalnum()):
-            return cleaned_sentence[:start] + "_____" + cleaned_sentence[end:]
+    # 尝试匹配每个变体
+    for variant in all_variants:
+        # 使用正则表达式确保匹配整个单词
+        pattern = re.compile(rf'\b{re.escape(variant)}\b', re.IGNORECASE)
+        match = pattern.search(cleaned_sentence)
+        if match:
+            # 找到实际出现在句子中的形式（保持原有大小写）
+            actual_word = cleaned_sentence[match.start():match.end()]
+            return cleaned_sentence.replace(actual_word, "_____")
     
-    # 策略5：如果都没有匹配到，手动创建包含空白的句子
-    return cleaned_sentence + f" (Fill in: _____)"
+    # 如果以上都没匹配到，尝试更宽松的匹配
+    # 查找包含原始单词的单词（如 collaborated 包含 collaborate）
+    pattern_partial = re.compile(rf'\b\w*{re.escape(word_lower)}\w*\b', re.IGNORECASE)
+    matches = pattern_partial.findall(cleaned_sentence)
     
+    for match in matches:
+        # 使用正则表达式确保匹配整个单词
+        pattern_full = re.compile(rf'\b{re.escape(match)}\b', re.IGNORECASE)
+        full_match = pattern_full.search(cleaned_sentence)
+        if full_match:
+            actual_word = cleaned_sentence[full_match.start():full_match.end()]
+            return cleaned_sentence.replace(actual_word, "_____")
+    
+    # 如果还是没有匹配到，返回带提示的句子
+    return f"{cleaned_sentence} (Fill in: _____)"
+
 def play_fill_blank_game():
     # ______ Fill-in-the-Blank Game (改进版) ______
     if st.session_state.get("game_started", False) and st.session_state.get("game_mode") == "Fill-in-the-Blank Game":
@@ -1004,8 +1130,7 @@ def play_fill_blank_game():
         
         # 显示提示信息
         st.info(
-            'When no dictionary example is available, a default sentence will be used '
-            '("I LIKE TO ___ EVERY DAY.").'
+            'When no dictionary example is available, a default sentence will be used.'
         )
         
         # 初始化游戏状态
@@ -1017,7 +1142,7 @@ def play_fill_blank_game():
             st.session_state.fb_correct_answers = []
             st.session_state.fb_blanked_sentences = []
             st.session_state.fb_original_sentences = []
-            st.session_state.fb_is_fallback = []  # 新增：记录是否为fallback句子
+            st.session_state.fb_is_fallback = []  # 记录是否为fallback句子
             st.session_state.fb_played_order = []  # 存储打乱的问题顺序
             st.session_state.fb_waiting_for_next = False
         
@@ -1044,27 +1169,39 @@ def play_fill_blank_game():
                 sentence = get_example_sentence_mw(word)
                 st.session_state.fb_original_sentences.append(sentence)
                 
-                # 创建填空句子
-                blanked_sentence = create_blank_sentence(word, sentence)
-                st.session_state.fb_blanked_sentences.append(blanked_sentence)
-                
                 # 检查是否为fallback句子
-                is_fallback = "DEFAULT SENTENCE" in sentence.upper() or "DEFAULT SENTENCE" in blanked_sentence.upper()
+                is_fallback = "[DEFAULT]" in sentence
                 st.session_state.fb_is_fallback.append(is_fallback)
                 
-                # 如果不是fallback句子，增加题目计数
+                # 创建填空句子
                 if not is_fallback:
-                    st.session_state.fb_total_questions += 1
+                    blanked_sentence = create_blank_sentence(word, sentence)
+                    # 检查是否成功挖空
+                    if "_____" in blanked_sentence:
+                        st.session_state.fb_blanked_sentences.append(blanked_sentence)
+                        st.session_state.fb_total_questions += 1
+                    else:
+                        # 如果挖空失败，标记为fallback
+                        st.session_state.fb_is_fallback[-1] = True
+                        st.session_state.fb_blanked_sentences.append(sentence + " (Fill in: _____)")
+                else:
+                    # 对于fallback句子，直接显示填空提示
+                    st.session_state.fb_blanked_sentences.append(sentence.replace(word, "_____"))
                 
                 # 更新进度条
                 progress_bar.progress((i + 1) / len(user_words))
             
             progress_bar.empty()
             
-            # 3. 创建打乱的问题顺序
+            # 3. 创建打乱的问题顺序（只打乱实际会展示的顺序）
+            # 注意：所有10个问题都会展示，但只有非fallback的会计分
             shuffled_order = list(range(len(user_words)))
             random.shuffle(shuffled_order)
             st.session_state.fb_played_order = shuffled_order
+            
+            # 显示统计信息
+            fallback_count = sum(st.session_state.fb_is_fallback)
+            st.info(f"📊 Generated {len(user_words)} questions. {st.session_state.fb_total_questions} scored questions, {fallback_count} default sentences.")
         
         # 检查游戏是否结束
         if idx < len(user_words):
@@ -1075,11 +1212,11 @@ def play_fill_blank_game():
             original_sentence = st.session_state.fb_original_sentences[current_order]
             is_fallback = st.session_state.fb_is_fallback[current_order]
             
-            # 显示是否为fallback句子（用图标表示）
+            # 显示是否为fallback句子
             if is_fallback:
-                st.info(f"📝 Question {idx + 1} of {len(user_words)} (🎯 Default Sentence - Not Counted)")
+                st.info(f"📝 Question {idx + 1} of {len(user_words)} (⚪ Practice Sentence - Not Counted)")
             else:
-                st.info(f"📝 Question {idx + 1} of {len(user_words)}")
+                st.info(f"📝 Question {idx + 1} of {len(user_words)} (🎯 Scored)")
             
             # 显示填空句子
             st.markdown(f"### {current_sentence}")
@@ -1088,13 +1225,12 @@ def play_fill_blank_game():
             st.write("**Select the correct word to fill in the blank:**")
             
             # 创建两列布局显示10个选项
-            cols = st.columns(2)  # 创建两列
+            cols = st.columns(2)
             
             # 将10个单词分配到两列
             for i, word in enumerate(user_words):
-                col_idx = i % 2  # 0表示第一列，1表示第二列
+                col_idx = i % 2
                 with cols[col_idx]:
-                    # 使用button风格的选择
                     is_selected = st.session_state.get(f"fb_selected_{idx}") == word
                     button_type = "primary" if is_selected else "secondary"
                     
@@ -1104,18 +1240,15 @@ def play_fill_blank_game():
                         use_container_width=True,
                         type=button_type
                     ):
-                        # 记录用户选择
                         st.session_state[f"fb_selected_{idx}"] = word
                         st.rerun()
             
-            # 显示当前选择的单词（如果有）
+            # 显示当前选择的单词
             if st.session_state.get(f"fb_selected_{idx}"):
                 st.markdown(f"**Your current selection:** `{st.session_state[f'fb_selected_{idx}']}`")
             
-            # 提交当前答案的按钮
+            # 提交按钮
             col1, col2 = st.columns(2)
-            
-            # 如果没有选择，禁用Submit按钮
             submit_disabled = st.session_state.get(f"fb_selected_{idx}") is None
             
             with col1:
@@ -1123,39 +1256,40 @@ def play_fill_blank_game():
                             key=f"fb_submit_{idx}", 
                             disabled=submit_disabled,
                             use_container_width=True):
-                    # 获取用户选择
                     user_choice = st.session_state.get(f"fb_selected_{idx}", "")
                     
                     # 保存答案
                     st.session_state.fb_answers[current_order] = user_choice
                     
-                    # 显示原始句子（展开状态）
+                    # 显示原始句子
                     with st.expander("📖 Show original sentence"):
                         st.write(f"**Original sentence:** {original_sentence}")
                         if is_fallback:
-                            st.warning("⚠️ This is a default sentence - not counted in final score")
+                            st.warning("⚪ This is a practice sentence - not counted in final score")
                     
                     # 检查答案（只有非fallback句子才计分）
-                    if user_choice.lower() == correct_word.lower():
-                        if not is_fallback:
+                    if not is_fallback:
+                        # 计分题目的答案检查
+                        if user_choice.lower() == correct_word.lower():
                             st.session_state.fb_score += 1
-                            st.success(f"✅ Correct! **'{correct_word}'** fits perfectly!")
+                            st.success(f"✅ Correct! **'{correct_word}'** fits perfectly! (+1 point)")
                         else:
-                            st.success(f"✅ Correct! **'{correct_word}'** fits perfectly! (Default sentence - not scored)")
-                    else:
-                        if not is_fallback:
                             st.error(f"❌ Wrong. You selected **'{user_choice}'**. The correct answer was **'{correct_word}'**.")
+                    else:
+                        # 练习句子只给反馈，不计分
+                        if user_choice.lower() == correct_word.lower():
+                            st.success(f"✅ Good! **'{correct_word}'** is correct! (Practice sentence)")
                         else:
-                            st.error(f"❌ Wrong. You selected **'{user_choice}'**. The correct answer was **'{correct_word}'**. (Default sentence - not scored)")
+                            st.error(f"❌ Try again. You selected **'{user_choice}'**. The correct answer was **'{correct_word}'**. (Practice sentence)")
                     
                     # 清除当前选择
                     if f"fb_selected_{idx}" in st.session_state:
                         del st.session_state[f"fb_selected_{idx}"]
                     
-                    # 显示下一题按钮（等待用户点击）
+                    # 显示下一题按钮
                     st.session_state.fb_waiting_for_next = True
             
-            # 如果等待下一题，显示Next按钮
+            # 下一题按钮
             if st.session_state.get("fb_waiting_for_next", False):
                 with col2:
                     if st.button("➡️ Next Question", 
@@ -1166,14 +1300,17 @@ def play_fill_blank_game():
                         st.rerun()
         else:
             # 游戏结束：显示结果
-            st.balloons()  # 庆祝动画
+            st.balloons()
             
             # 计算有效题目（非fallback）的数量
             valid_questions = st.session_state.fb_total_questions
+            
             if valid_questions > 0:
-                st.success(f"🎮 Game Finished! Your score: **{st.session_state.fb_score}/{valid_questions}** (excluding default sentences)")
+                accuracy = (st.session_state.fb_score / valid_questions) * 100
+                st.success(f"🎮 Game Finished! Your score: **{st.session_state.fb_score}/{valid_questions}**")
+                st.info(f"📊 Accuracy: {accuracy:.1f}%")
             else:
-                st.success(f"🎮 Game Finished! All sentences were default sentences - no score calculated")
+                st.success(f"🎮 Game Finished! All sentences were practice sentences.")
             
             # 创建结果表格
             df_data = []
@@ -1185,155 +1322,113 @@ def play_fill_blank_game():
                 original_sentence = st.session_state.fb_original_sentences[original_idx]
                 is_fallback = st.session_state.fb_is_fallback[original_idx]
                 
-                # 检查是否答对（只有非fallback句子才需要判断）
-                if is_fallback:
-                    result = "⚪ Default"
-                    scored = "No"
-                else:
+                # 检查是否答对
+                if not is_fallback:
                     is_correct = user_answer.lower() == correct_answer.lower() if user_answer else False
                     result = "✅ Correct" if is_correct else "❌ Wrong"
                     scored = "Yes"
+                else:
+                    if user_answer:
+                        is_practice_correct = user_answer.lower() == correct_answer.lower()
+                        result = "✅ Practice" if is_practice_correct else "❌ Practice"
+                    else:
+                        result = "⚪ Not answered"
+                    scored = "No"
                 
                 df_data.append({
-                    "Blanked Sentence": blanked_sentence,
-                    "Original Sentence": original_sentence,
+                    "Sentence": blanked_sentence,
                     "Correct Answer": correct_answer,
                     "Your Answer": user_answer if user_answer else "(No answer)",
                     "Result": result,
                     "Scored?": scored
                 })
             
-            df = pd.DataFrame(df_data)
-            
-            # 添加样式到表格
+            # 显示表格
             st.subheader("📊 Your Results")
             
-            # 使用st.dataframe以获得更好的控制
+            df = pd.DataFrame(df_data)
             st.dataframe(
                 df,
                 column_config={
-                    "Blanked Sentence": st.column_config.TextColumn(
-                        "Fill-in Sentence",
-                        width="large"
-                    ),
-                    "Original Sentence": st.column_config.TextColumn(
-                        "Original Sentence",
-                        width="large"
-                    ),
+                    "Sentence": st.column_config.TextColumn("Fill-in Sentence", width="large"),
                     "Correct Answer": "Correct Word",
                     "Your Answer": "Your Choice",
-                    "Result": st.column_config.TextColumn(
-                        "Result",
-                        help="✅ = Correct, ❌ = Wrong, ⚪ = Default sentence"
-                    ),
-                    "Scored?": st.column_config.TextColumn(
-                        "Counted?",
-                        help="Whether this question was counted in your final score"
-                    )
+                    "Result": st.column_config.TextColumn("Result"),
+                    "Scored?": st.column_config.TextColumn("Counted in Score?")
                 },
                 hide_index=True,
                 use_container_width=True
             )
             
-            # 显示分数统计（只计算非fallback题目）
-            if valid_questions > 0:
-                accuracy = (st.session_state.fb_score / valid_questions) * 100
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Total Score", f"{st.session_state.fb_score}/{valid_questions}")
-                with col2:
-                    st.metric("Accuracy", f"{accuracy:.1f}%")
-                with col3:
-                    if accuracy >= 80:
-                        performance = "🏆 Excellent"
-                    elif accuracy >= 60:
-                        performance = "👍 Good"
-                    else:
-                        performance = "📚 Needs Practice"
-                    st.metric("Performance", performance)
-                
-                # 显示统计信息
-                fallback_count = len([x for x in st.session_state.fb_is_fallback if x])
-                st.info(f"📊 Statistics: {len(user_words)} total questions, {valid_questions} scored questions, {fallback_count} default sentences")
-            else:
-                st.warning("⚠️ All sentences were default sentences. Your performance is not scored.")
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Total Score", "N/A")
-                with col2:
-                    st.metric("Accuracy", "N/A")
-                with col3:
-                    st.metric("Performance", "No Score")
+            # 显示详细统计
+            fallback_count = sum(st.session_state.fb_is_fallback)
+            answered_count = sum(1 for ans in st.session_state.fb_answers if ans)
             
-            # 添加两个按钮
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Questions", len(user_words))
+            with col2:
+                st.metric("Scored Questions", valid_questions)
+            with col3:
+                st.metric("Practice Sentences", fallback_count)
+            
+            # 性能评价（仅针对计分题目）
+            if valid_questions > 0:
+                if accuracy >= 90:
+                    performance = "🏆 Outstanding!"
+                elif accuracy >= 75:
+                    performance = "👍 Excellent!"
+                elif accuracy >= 60:
+                    performance = "👌 Good Job"
+                else:
+                    performance = "📚 Keep Practicing"
+                
+                st.markdown(f"### {performance}")
+            
+            # 添加操作按钮
             st.markdown("---")
             st.write("### What would you like to do next?")
             col1, col2, col3 = st.columns([1, 1, 1])
             
             with col1:
-                if st.button("🔄 Play Again", 
-                            use_container_width=True,
-                            help="Play the same game again with new random order"):
-                    # 重置填空游戏状态
-                    st.session_state.fb_index = 0
-                    st.session_state.fb_score = 0
-                    st.session_state.fb_total_questions = 0
-                    st.session_state.fb_answers = [""] * 10
-                    st.session_state.fb_correct_answers = []
-                    st.session_state.fb_blanked_sentences = []
-                    st.session_state.fb_original_sentences = []
-                    st.session_state.fb_is_fallback = []
-                    st.session_state.fb_played_order = []
-                    st.session_state.fb_waiting_for_next = False
-                    # 清除所有选择状态
-                    for key in list(st.session_state.keys()):
-                        if key.startswith("fb_selected_"):
-                            del st.session_state[key]
+                if st.button("🔄 Play Again", use_container_width=True):
+                    reset_fill_blank_game()
                     st.rerun()
             
             with col2:
-                if st.button("🎮 Try Another Game", 
-                            use_container_width=True,
-                            help="Go back to choose a different game mode"):
-                    # 返回游戏选择界面
+                if st.button("🎮 Try Another Game", use_container_width=True):
                     st.session_state.game_started = False
-                    # 只重置填空游戏特定状态
-                    st.session_state.fb_index = 0
-                    st.session_state.fb_score = 0
-                    st.session_state.fb_total_questions = 0
-                    st.session_state.fb_answers = [""] * 10
-                    st.session_state.fb_correct_answers = []
-                    st.session_state.fb_blanked_sentences = []
-                    st.session_state.fb_original_sentences = []
-                    st.session_state.fb_is_fallback = []
-                    st.session_state.fb_played_order = []
-                    st.session_state.fb_waiting_for_next = False
-                    # 清除所有选择状态
-                    for key in list(st.session_state.keys()):
-                        if key.startswith("fb_selected_"):
-                            del st.session_state[key]
+                    reset_fill_blank_game()
                     st.rerun()
             
             with col3:
-                if st.button("🏠 Main Menu", 
-                            use_container_width=True,
-                            help="Return to the main menu"):
-                    # 完全重置所有状态
+                if st.button("🏠 Main Menu", use_container_width=True):
                     st.session_state.game_started = False
                     st.session_state.game_mode = None
-                    # 清除所有填空游戏状态
-                    for key in ["fb_index", "fb_score", "fb_total_questions", "fb_answers", 
-                               "fb_correct_answers", "fb_blanked_sentences",
-                               "fb_original_sentences", "fb_is_fallback", "fb_played_order", 
-                               "fb_waiting_for_next"]:
-                        if key in st.session_state:
-                            del st.session_state[key]
-                    # 清除所有选择状态
-                    for key in list(st.session_state.keys()):
-                        if key.startswith("fb_selected_"):
-                            del st.session_state[key]
+                    reset_fill_blank_game(clear_all=True)
                     st.rerun()
+
+def reset_fill_blank_game(clear_all=False):
+    """重置填空游戏状态"""
+    keys_to_reset = [
+        "fb_index", "fb_score", "fb_total_questions", "fb_answers",
+        "fb_correct_answers", "fb_blanked_sentences", "fb_original_sentences",
+        "fb_is_fallback", "fb_played_order", "fb_waiting_for_next"
+    ]
+    
+    for key in keys_to_reset:
+        if key in st.session_state:
+            del st.session_state[key]
+    
+    # 清除所有选择状态
+    for key in list(st.session_state.keys()):
+        if key.startswith("fb_selected_"):
+            del st.session_state[key]
+    
+    # 如果清除所有，也清除翻译缓存
+    if clear_all and "translation_cache" in st.session_state:
+        del st.session_state["translation_cache"]
+        
                                 
 # ------------------- session_state defaults -------------------
 if "user_words" not in st.session_state:
