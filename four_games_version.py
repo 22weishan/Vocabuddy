@@ -194,7 +194,7 @@ if st.session_state.user_words and len(st.session_state.user_words) == 10:
     st.markdown("### 2. Choose a game and start")
     st.session_state.game_mode = st.selectbox(
         "Choose game mode",
-        ["1. Listen & Choose", "2. Scrambled Letters Game", "3. Matching Game",  "4. Fill-in-the-Blank Game"],
+        ["Listen & Choose", "Scrambled Letters Game", "Matching Game",  "Fill-in-the-Blank Game"],
         index=0
     )
 if st.button("Start Game"):
@@ -248,7 +248,7 @@ if st.button("Start Game"):
     st.rerun()
 
 # ______ 1. Listen & Choose (改进版) ______
-    if st.session_state.get("game_started", False) and st.session_state.get("game_mode") == "Listen & Choose":
+if st.session_state.get("game_started", False) and st.session_state.get("game_mode") == "Listen & Choose":
         st.subheader("🎧 Listen & Choose Game")
     
     # 初始化游戏状态
