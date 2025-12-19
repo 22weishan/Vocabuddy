@@ -190,6 +190,13 @@ if st.session_state.user_words:
         st.warning("Please provide exactly 10 words to play (you can enter/upload more and then edit).")
         
 # ------------------- choose game mode -------------------
+if st.session_state.user_words and len(st.session_state.user_words) == 10:
+    st.markdown("### 2. Choose a game and start")
+    st.session_state.game_mode = st.selectbox(
+        "Choose game mode",
+        ["Scrambled Letters Game", "Matching Game", "Listen & Choose", "Fill-in-the-Blank Game"],
+        index=0
+    )
 if st.button("Start Game"):
     st.session_state.game_started = True
     original_words = st.session_state.user_words.copy()
