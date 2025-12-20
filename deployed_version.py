@@ -154,7 +154,14 @@ def read_image(image_file):
 # ------------------- Streamlit Design -------------------
 st.set_page_config(page_title="Vocabuddy", layout="centered")
 st.title("Hi, Welcome to Vocabuddy")
-
+with st.expander("ℹ️ Game Instructions", expanded=False):
+    st.markdown("""
+        1. 🎵 testing
+        2. 🔤 Select the word you heard from the 10 options below 从下方10个单词中选择你听到的单词
+        3. ✅ Submit your answer for immediate feedback 提交答案，即时获得反馈
+        4. ➡️ View your score after completing all 10 words 完成10个单词后查看成绩
+            """)
+            
 # ------------------- Users Input -------------------
 st.markdown("### 1. Provide 10 words")
 words_input = st.text_area("Please enter 10 words (use space or enter in another line)", height=120)
