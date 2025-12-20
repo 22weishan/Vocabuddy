@@ -1504,10 +1504,6 @@ def play_fill_blank_game():
             shuffled_order = list(range(len(user_words)))
             random.shuffle(shuffled_order)
             st.session_state.fb_played_order = shuffled_order
-            
-            # 显示统计信息
-            fallback_count = sum(st.session_state.fb_is_fallback)
-            st.info(f"📊 Generated {len(user_words)} questions. {st.session_state.fb_total_questions} scored questions, {fallback_count} default sentences.")
         
         # 检查游戏是否结束
         if idx < len(user_words):
