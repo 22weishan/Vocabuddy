@@ -154,12 +154,16 @@ def read_image(image_file):
 # ------------------- Streamlit Design -------------------
 st.set_page_config(page_title="Vocabuddy", layout="centered")
 st.title("Hi, Welcome to Vocabuddy")
-with st.expander("ℹ️ Game Instructions", expanded=False):
+with st.expander("ℹ️ Vocabuddy Guidance/使用方式指引", expanded=False):
     st.markdown("""
-        1. 🎵 testing
-        2. 🔤 Select the word you heard from the 10 options below 从下方10个单词中选择你听到的单词
-        3. ✅ Submit your answer for immediate feedback 提交答案，即时获得反馈
-        4. ➡️ View your score after completing all 10 words 完成10个单词后查看成绩
+        0. You’re in control of what you learn. 这是一个支持自主学习的学单词工具
+        1. start small: 选择自己想要学习的英语单词（每次10个）
+        2. 上传方式：手动输入、上传文件或图像
+        3. 四个练习维度：音形义用
+        4. 两种练习模式:针对性练习:专门训练短板（适合练习有一点点印象，但是掌握不够熟练的单词） or 默认模式：按顺序四个维度（适合完全不认识的单词）
+        5. 每个练习后都有反馈，建议训练到准确率达80%，否则可以不断重复练习
+        6. 词汇积累是个过程，关键在于重复重复重复！
+        7. 没有7了，赶紧开始你的背单词旅程吧～
             """)
             
 # ------------------- Users Input -------------------
