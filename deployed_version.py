@@ -553,7 +553,7 @@ def play_spelling_game():
         
         # 游戏界面
         # 精简游戏说明
-        with st.expander("ℹ️ Game Instructions:英语拼写遵循发音规则，这个游戏帮你建立"音➡️形"对应关系。（查看具体步骤/规则可下拉", expanded=False):
+        with st.expander("ℹ️ Game Instructions:英语拼写遵循发音规则，这个游戏帮你建立"音和形"对应关系。（查看具体步骤/规则可下拉", expanded=False):
             st.markdown("""
             - 🎧 Listen to the word pronunciation 播放音频听单词的发音
             - 🔤 Type letters you hear (press Enter) 根据发音输入单词拼写
