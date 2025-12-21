@@ -200,7 +200,7 @@ if st.session_state.user_words:
 # ------------------- choose game mode -------------------
 # 卡片式游戏选择
 if st.session_state.user_words and len(st.session_state.user_words) == 10:
-    st.markdown("### 2. Choose Game Mode 选择游戏模式")
+    st.markdown("### 2. Choose Practice Mode 选择练习模式")
     
     # 简单的四个按钮代替下拉框
     col1, col2, col3, col4 = st.columns(4)
