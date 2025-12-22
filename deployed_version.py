@@ -911,7 +911,6 @@ def play_matching_game():
         - 🔄 English words are in a fixed order on the left
         - 🔀 Chinese translations are shuffled on the right
         - ✅ Select one Chinese meaning for each English word
-        - ⏱️ Complete all matches before submitting
         """)
     
     # 获取当前状态
@@ -923,11 +922,6 @@ def play_matching_game():
     
     # 如果游戏未完成，显示当前题目
     if not st.session_state.get("matching_finished", False):
-        # 显示当前进度
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            st.info(f"🔤 Word {idx + 1} of {total_words}")
-        
         # 当前英文单词
         current_en_word = en_list[idx]
         
