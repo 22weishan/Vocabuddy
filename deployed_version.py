@@ -323,7 +323,6 @@ if st.session_state.get("game_started", False) and st.session_state.get("game_mo
             
         # 生成并播放音频（自动播放）
         audio_file = generate_tts_audio(current_audio_word)
-        st.audio(audio_file, format="audio/mp3", autoplay=True)
         
         # 显示所有10个单词作为选项（保持原始顺序）
         st.write("**Select the word you heard:**")
