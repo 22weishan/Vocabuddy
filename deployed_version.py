@@ -91,7 +91,7 @@ def generate_tts_audio(word):
     return audio_path
     
 def get_audio_html(word, idx):
-    """获取音频HTML，使用内联JavaScript"""
+    """获取音频HTML，使用正确的动态索引"""
     audio_path = generate_tts_audio(word)
     
     with open(audio_path, "rb") as f:
@@ -99,14 +99,23 @@ def get_audio_html(word, idx):
     
     b64 = base64.b64encode(audio_bytes).decode()
     
+    # 使用 f-string 插入动态的 idx
     return f"""
         <div style="text-align: center; margin: 20px 0;">
             <audio id="audio_{idx}" style="display: none;">
                 <source src="data:audio/mp3;base64,{b64}" type="audio/mpeg">
             </audio>
             
-            <button onclick="(function(){{ 
+            <button onclick="(function(){{
                 var audio = document.getElementById('audio_{idx}'); 
+                // 停止其他音频
+                var allAudios = document.querySelectorAll('audio');
+                allAudios.forEach(function(a){{
+                    if (a.id !== 'audio_{idx}') {{
+                        a.pause();
+                        a.currentTime = 0;
+                    }}
+                }});
                 audio.play(); 
             }})()" 
                     style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
