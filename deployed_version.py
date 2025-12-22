@@ -79,28 +79,23 @@ def ensure_audio_folder():
     os.makedirs(AUDIO_DIR, exist_ok=True)
 
 def play_audio_html(word):
-    ensure_audio_folder()
-    audio_path = os.path.join(AUDIO_DIR, f"{word}.mp3")
+    audio_path = generate_tts_audio(word)
 
-    if not os.path.exists(audio_path):
-        tts = gTTS(word, lang="en")
-        tts.save(audio_path)
-
-    # 读取音频并转成 base64
+    # 读取 mp3 二进制
     with open(audio_path, "rb") as f:
         audio_bytes = f.read()
 
-    b64_audio = base64.b64encode(audio_bytes).decode()
+    # 转 base64
+    b64 = base64.b64encode(audio_bytes).decode()
 
-    # 用 html audio 标签嵌入，iPhone 兼容最好
+    # 直接用 data URI 播放（不会被 Safari 缓存）
     audio_html = f"""
-    <audio controls>
-        <source src="data:audio/mp3;base64,{b64_audio}" type="audio/mp3">
-        Your browser does not support audio.
-    </audio>
+        <audio controls autoplay>
+            <source src="data:audio/mp3;base64,{b64}" type="audio/mpeg">
+        </audio>
     """
-    st.markdown(audio_html, unsafe_allow_html=True)
 
+    st.markdown(audio_html, unsafe_allow_html=True)
 
 # ------------------- Baidu Translate API -------------------
 APPID = "20251130002509027"  # <- 在此填入你的 APPID
