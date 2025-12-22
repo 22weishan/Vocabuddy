@@ -78,6 +78,18 @@ AUDIO_DIR = "audio"
 def ensure_audio_folder():
     os.makedirs(AUDIO_DIR, exist_ok=True)
 
+def generate_tts_audio(word):
+    ensure_audio_folder()
+
+    audio_path = os.path.join(AUDIO_DIR, f"{word}.mp3")
+
+    # 如果不存在就生成
+    if not os.path.exists(audio_path):
+        tts = gTTS(word, lang='en')
+        tts.save(audio_path)
+
+    return audio_path
+    
 def play_audio_html(word):
     audio_path = generate_tts_audio(word)
 
