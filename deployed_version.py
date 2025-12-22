@@ -315,7 +315,7 @@ if st.session_state.get("game_started", False) and st.session_state.get("game_mo
             # 精简游戏说明
         with st.expander("ℹ️ Game Instructions: 像婴儿学母语一样自然——先听音，后认词（查看具体步骤/规则可下拉)", expanded=False):
             st.markdown("""
-            1. 🎵 Click the play button to hear the word pronunciation 点击播放按钮听单词发音
+            1. 🎵 Click the play button to hear the word pronunciation 点击播放按钮听单词发音（建议跟着音频念出发音）
             2. 🔤 Select the word you heard from the 10 options below 从下方10个单词中选择你听到的单词
             3. ✅ Submit your answer for immediate feedback 提交答案，即时获得反馈
             4. ➡️ View your score after completing all 10 words 完成10个单词后查看成绩
@@ -555,7 +555,7 @@ def play_spelling_game():
         # 精简游戏说明
         with st.expander("ℹ️ Game Instructions:英语拼写遵循发音规则，这个游戏帮你建立音和形对应关系。（查看具体步骤/规则可下拉)", expanded=False):
             st.markdown("""
-            - 🎧 Listen to the word pronunciation 播放音频听单词的发音
+            - 🎧 Listen to the word pronunciation 播放音频听单词的发音（建议跟着音频念出发音）
             - 🔤 Type letters you hear (press Enter) 根据发音输入单词拼写
             - ✅ Correct letters appear automatically 输入正确的字母会自动出现
             - ❌ Wrong letters are tracked below 输入错误的字母会有记录
