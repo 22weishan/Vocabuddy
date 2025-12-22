@@ -91,7 +91,7 @@ def generate_tts_audio(word):
     return audio_path
     
 def get_audio_html(word, idx):
-    """获取音频HTML，不自动播放"""
+    """获取音频HTML，使用内联JavaScript"""
     audio_path = generate_tts_audio(word)
     
     with open(audio_path, "rb") as f:
@@ -105,7 +105,10 @@ def get_audio_html(word, idx):
                 <source src="data:audio/mp3;base64,{b64}" type="audio/mpeg">
             </audio>
             
-            <button onclick="playSpecificAudio('audio_{idx}')" 
+            <button onclick="(function(){{ 
+                var audio = document.getElementById('audio_{idx}'); 
+                audio.play(); 
+            }})()" 
                     style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                            color: white; border: none; padding: 12px 30px; 
                            border-radius: 25px; font-size: 16px; cursor: pointer;
@@ -119,33 +122,30 @@ def get_audio_html(word, idx):
         </div>
     """
 
+# 修改 add_audio_script 函数
 def add_audio_script():
     """添加全局音频控制脚本"""
     st.markdown("""
     <script>
-    let currentPlayingAudio = null;
+    // 全局音频控制
+    window.currentPlayingAudio = null;
     
-    function playSpecificAudio(audioId) {
-        // 停止当前播放的音频
-        if (currentPlayingAudio && currentPlayingAudio.id !== audioId) {
-            currentPlayingAudio.pause();
-            currentPlayingAudio.currentTime = 0;
-        }
-        
-        // 播放新的音频
-        var audio = document.getElementById(audioId);
-        currentPlayingAudio = audio;
-        audio.play();
-    }
-    
-    // 页面加载时停止所有音频
-    window.addEventListener('load', function() {
+    // 停止所有音频
+    function stopAllAudios() {
         var audios = document.getElementsByTagName('audio');
         for (var i = 0; i < audios.length; i++) {
             audios[i].pause();
             audios[i].currentTime = 0;
         }
-    });
+        window.currentPlayingAudio = null;
+    }
+    
+    // 页面加载时停止所有音频
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', stopAllAudios);
+    } else {
+        stopAllAudios();
+    }
     </script>
     """, unsafe_allow_html=True)
     
