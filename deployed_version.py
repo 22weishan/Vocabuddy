@@ -78,15 +78,19 @@ def ensure_audio_folder():
     os.makedirs(AUDIO_DIR, exist_ok=True)
 
 def generate_tts_audio(word):
-    """If audio doesn't exist, generate TTS."""
     ensure_audio_folder()
     audio_path = os.path.join(AUDIO_DIR, f"{word}.mp3")
 
+    # 如果没有就生成
     if not os.path.exists(audio_path):
         tts = gTTS(word, lang='en')
         tts.save(audio_path)
 
-    return audio_path
+    # 关键：用 bytes 返回
+    with open(audio_path, "rb") as f:
+        audio_bytes = f.read()
+
+    return audio_bytes
 
 # ------------------- Baidu Translate API -------------------
 APPID = "20251130002509027"  # <- 在此填入你的 APPID
@@ -322,19 +326,6 @@ if st.session_state.get("game_started", False) and st.session_state.get("game_mo
             4. ➡️ View your score after completing all 10 words 完成10个单词后查看成绩
             """)
 
-        def generate_tts_audio(word):
-            ensure_audio_folder()
-            audio_path = os.path.join(AUDIO_DIR, f"{word}.mp3")
-
-            if not os.path.exists(audio_path):
-                tts = gTTS(word, lang='en')
-                tts.save(audio_path)
-
-    # 关键：用 bytes 返回
-            with open(audio_path, "rb") as f:
-                audio_bytes = f.read()
-
-            return audio_bytes
 
         # 生成并播放音频（自动播放）
         audio_file = generate_tts_audio(current_audio_word)
