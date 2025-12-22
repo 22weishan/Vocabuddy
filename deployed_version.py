@@ -313,7 +313,7 @@ if st.session_state.get("game_started", False) and st.session_state.get("game_mo
         st.info(f"🎵 Word {idx + 1} of {len(user_words)}")
 
             # 精简游戏说明
-        with st.expander("ℹ️ Game Instructions", expanded=False):
+        with st.expander("ℹ️ Game Instructions: 像婴儿学母语一样自然——先听音，后认词（查看具体步骤/规则可下拉)", expanded=False):
             st.markdown("""
             1. 🎵 Click the play button to hear the word pronunciation 点击播放按钮听单词发音
             2. 🔤 Select the word you heard from the 10 options below 从下方10个单词中选择你听到的单词
