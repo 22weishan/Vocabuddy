@@ -321,7 +321,21 @@ if st.session_state.get("game_started", False) and st.session_state.get("game_mo
             3. ✅ Submit your answer for immediate feedback 提交答案，即时获得反馈
             4. ➡️ View your score after completing all 10 words 完成10个单词后查看成绩
             """)
-            
+
+        def generate_tts_audio(word):
+            ensure_audio_folder()
+            audio_path = os.path.join(AUDIO_DIR, f"{word}.mp3")
+
+            if not os.path.exists(audio_path):
+                tts = gTTS(word, lang='en')
+                tts.save(audio_path)
+
+    # 关键：用 bytes 返回
+            with open(audio_path, "rb") as f:
+                audio_bytes = f.read()
+
+            return audio_bytes
+
         # 生成并播放音频（自动播放）
         audio_file = generate_tts_audio(current_audio_word)
         st.audio(audio_file, format="audio/mp3", autoplay=True)  
