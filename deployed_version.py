@@ -290,45 +290,6 @@ if st.button("Start Game"):
     st.rerun()
 
 # ______ 1. Listen & Choose  ______
-def universal_audio_player(word, game_context=""):
-    """通用的音频播放器，兼容所有设备"""
-    
-    # 生成音频文件
-    audio_path = generate_tts_audio(word)
-    
-    # 读取音频文件
-    with open(audio_path, 'rb') as f:
-        audio_bytes = f.read()
-    
-    # 创建三列布局：提示、按钮、重播
-    col1, col2, col3 = st.columns([2, 2, 1])
-    
-    with col1:
-        st.markdown(f"**单词发音：** `{word}`")
-    
-    with col2:
-        # 主播放按钮
-        if st.button("🔊 播放发音", 
-                    key=f"play_main_{word}",
-                    use_container_width=True,
-                    type="primary"):
-            # 使用session_state存储播放状态
-            st.session_state[f"play_{word}"] = True
-    
-    with col3:
-        # 重播按钮
-        if st.button("🔄", 
-                    key=f"replay_{word}",
-                    help="重播发音"):
-            st.session_state[f"replay_{word}"] = True
-    
-    # 如果用户点击了播放按钮，显示音频
-    if st.session_state.get(f"play_{word}") or st.session_state.get(f"replay_{word}"):
-        st.audio(audio_bytes, format='audio/mp3')
-        
-        # 重置状态
-        if st.session_state.get(f"replay_{word}"):
-            del st.session_state[f"replay_{word}"]
             
 if st.session_state.get("game_started", False) and st.session_state.get("game_mode") == "Listen & Choose":
     st.subheader("🎧 Listen & Choose Game")
