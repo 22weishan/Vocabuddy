@@ -90,24 +90,65 @@ def generate_tts_audio(word):
 
     return audio_path
     
-def play_audio_html(word):
+def get_audio_html(word, idx):
+    """获取音频HTML，不自动播放"""
     audio_path = generate_tts_audio(word)
-
-    # 读取 mp3 二进制
+    
     with open(audio_path, "rb") as f:
         audio_bytes = f.read()
-
-    # 转 base64
+    
     b64 = base64.b64encode(audio_bytes).decode()
-
-    # 直接用 data URI 播放（不会被 Safari 缓存）
-    audio_html = f"""
-        <audio controls autoplay>
-            <source src="data:audio/mp3;base64,{b64}" type="audio/mpeg">
-        </audio>
+    
+    return f"""
+        <div style="text-align: center; margin: 20px 0;">
+            <audio id="audio_{idx}" style="display: none;">
+                <source src="data:audio/mp3;base64,{b64}" type="audio/mpeg">
+            </audio>
+            
+            <button onclick="playSpecificAudio('audio_{idx}')" 
+                    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                           color: white; border: none; padding: 12px 30px; 
+                           border-radius: 25px; font-size: 16px; cursor: pointer;
+                           box-shadow: 0 4px 15px rgba(0,0,0,0.2); margin: 10px;">
+                🔊 播放单词发音
+            </button>
+            
+            <div style="margin-top: 10px; color: #666; font-size: 14px;">
+                第 {idx+1} 个单词：<strong>{word}</strong>
+            </div>
+        </div>
     """
 
-    st.markdown(audio_html, unsafe_allow_html=True)
+def add_audio_script():
+    """添加全局音频控制脚本"""
+    st.markdown("""
+    <script>
+    let currentPlayingAudio = null;
+    
+    function playSpecificAudio(audioId) {
+        // 停止当前播放的音频
+        if (currentPlayingAudio && currentPlayingAudio.id !== audioId) {
+            currentPlayingAudio.pause();
+            currentPlayingAudio.currentTime = 0;
+        }
+        
+        // 播放新的音频
+        var audio = document.getElementById(audioId);
+        currentPlayingAudio = audio;
+        audio.play();
+    }
+    
+    // 页面加载时停止所有音频
+    window.addEventListener('load', function() {
+        var audios = document.getElementsByTagName('audio');
+        for (var i = 0; i < audios.length; i++) {
+            audios[i].pause();
+            audios[i].currentTime = 0;
+        }
+    });
+    </script>
+    """, unsafe_allow_html=True)
+    
 
 # ------------------- Baidu Translate API -------------------
 APPID = "20251130002509027"  # <- 在此填入你的 APPID
@@ -315,37 +356,43 @@ if st.button("Start Game"):
 if st.session_state.get("game_started", False) and st.session_state.get("game_mode") == "Listen & Choose":
     st.subheader("🎧 Listen & Choose Game")
     
+    # 添加音频控制脚本
+    add_audio_script()
+    
     # 获取当前索引和单词列表
     idx = st.session_state.Listen_index
-    user_words = st.session_state.listen_words  # 使用专门为听音游戏准备的单词列表
+    user_words = st.session_state.listen_words
     
     # 如果是第一题，初始化打乱的播放顺序
     if idx == 0 and len(st.session_state.Listen_played_words) == 0:
-        # 创建打乱的播放顺序
         shuffled_words = user_words.copy()
         random.shuffle(shuffled_words)
         st.session_state.Listen_played_words = shuffled_words
     
     # 检查游戏是否结束
     if idx < len(user_words):
-        # 获取当前题目信息
-        current_audio_word = st.session_state.Listen_played_words[idx]  # 音频播放的单词（打乱顺序）
-        correct_word = current_audio_word  # 正确答案就是播放的单词
+        current_audio_word = st.session_state.Listen_played_words[idx]
+        correct_word = current_audio_word
         
         st.info(f"🎵 Word {idx + 1} of {len(user_words)}")
 
-            # 精简游戏说明
-        with st.expander("ℹ️ Game Instructions: 像婴儿学母语一样自然——先听音，后认词（查看具体步骤/规则可下拉)", expanded=False):
+        with st.expander('ℹ️ Game Instructions: 像婴儿学母语一样自然——先听音，后认词（查看具体步骤/规则可下拉)', expanded=False):
             st.markdown("""
-            1. 🎵 Click the play button to hear the word pronunciation 点击播放按钮听单词发音（建议跟着音频念出发音）
-            2. 🔤 Select the word you heard from the 10 options below 从下方10个单词中选择你听到的单词
-            3. ✅ Submit your answer for immediate feedback 提交答案，即时获得反馈
-            4. ➡️ View your score after completing all 10 words 完成10个单词后查看成绩
+            1. 🎵 点击播放按钮听单词发音（建议跟着音频念出发音）
+            2. 🔤 从下方10个单词中选择你听到的单词
+            3. ✅ 提交答案，即时获得反馈
+            4. ➡️ 完成10个单词后查看成绩
             """)
-
-
-        # 生成并播放音频（自动播放）
-        play_audio_html(current_audio_word)
+        
+        # =========== 修改这里：使用新的音频播放函数 ===========
+        st.markdown("### 🔊 听单词发音")
+        
+        # 显示音频播放按钮
+        audio_html = get_audio_html(current_audio_word, idx)
+        st.markdown(audio_html, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        # ===================================================
         
         # 显示所有10个单词作为选项（保持原始顺序）
         st.write("**Select the word you heard:**")
