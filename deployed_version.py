@@ -10,6 +10,7 @@ import hashlib
 import io
 from gtts import gTTS
 import os
+import base64
 
 # ============ initialization: session_state ============
 
@@ -77,20 +78,29 @@ AUDIO_DIR = "audio"
 def ensure_audio_folder():
     os.makedirs(AUDIO_DIR, exist_ok=True)
 
-def generate_tts_audio(word):
+def play_audio_html(word):
     ensure_audio_folder()
     audio_path = os.path.join(AUDIO_DIR, f"{word}.mp3")
 
-    # 如果没有就生成
     if not os.path.exists(audio_path):
-        tts = gTTS(word, lang='en')
+        tts = gTTS(word, lang="en")
         tts.save(audio_path)
 
-    # 关键：用 bytes 返回
+    # 读取音频并转成 base64
     with open(audio_path, "rb") as f:
         audio_bytes = f.read()
 
-    return audio_bytes
+    b64_audio = base64.b64encode(audio_bytes).decode()
+
+    # 用 html audio 标签嵌入，iPhone 兼容最好
+    audio_html = f"""
+    <audio controls>
+        <source src="data:audio/mp3;base64,{b64_audio}" type="audio/mp3">
+        Your browser does not support audio.
+    </audio>
+    """
+    st.markdown(audio_html, unsafe_allow_html=True)
+
 
 # ------------------- Baidu Translate API -------------------
 APPID = "20251130002509027"  # <- 在此填入你的 APPID
@@ -328,8 +338,7 @@ if st.session_state.get("game_started", False) and st.session_state.get("game_mo
 
 
         # 生成并播放音频（自动播放）
-        audio_file = generate_tts_audio(current_audio_word)
-        st.audio(audio_file, format="audio/mp3")
+        play_audio_html(current_audio_word)
         
         # 显示所有10个单词作为选项（保持原始顺序）
         st.write("**Select the word you heard:**")
